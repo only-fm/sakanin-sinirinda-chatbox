@@ -1,11 +1,29 @@
 services:
+  landing-web:
+    build:
+      target: landing-development
+      args:
+        VITE_LOGIN_APP_URL: http://localhost:${STUDENT_DEV_PORT:-5173}
+        VITE_STUDENT_APP_URL: http://localhost:${STUDENT_DEV_PORT:-5173}
+    command: npm run dev --workspace apps/landing-web -- --host 0.0.0.0
+    volumes:
+      - .:/workspace
+      - /workspace/node_modules
+    ports:
+      - "${LANDING_DEV_PORT:-5172}:5172"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5172').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       target: development
     command: npm run start:dev --workspace apps/api
     environment:
       NODE_ENV: development
-      WEB_ORIGINS: http://localhost:${STUDENT_DEV_PORT:-5173},http://localhost:${TEACHER_DEV_PORT:-5174},http://localhost:${ADMIN_DEV_PORT:-5175}
+      WEB_ORIGINS: http://localhost:${LANDING_DEV_PORT:-5172},http://localhost:${STUDENT_DEV_PORT:-5173},http://localhost:${TEACHER_DEV_PORT:-5174},http://localhost:${ADMIN_DEV_PORT:-5175}
     volumes:
       - .:/workspace
       - /workspace/node_modules

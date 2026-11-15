@@ -44,6 +44,17 @@ services:
       - app
       - data
 
+  landing-web:
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+      target: landing-production
+      args:
+        VITE_LOGIN_APP_URL: ${STUDENT_APP_URL:-http://localhost:${STUDENT_PROD_PORT:-8081}}
+        VITE_STUDENT_APP_URL: ${STUDENT_APP_URL:-http://localhost:${STUDENT_PROD_PORT:-8081}}
+    networks:
+      - app
+
   student-web:
     build:
       context: .

@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -26,6 +27,53 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly usersFile: UsersFileService,
   ) {}
+
+  async getSetupStatus(): Promise<{ needsSetup: boolean }> {
+    const users = await this.usersFile.getUsers();
+    const hasAdmin = users.some((u) => u.type === 'admin');
+    return { needsSetup: !hasAdmin };
+  }
+
+  async initialSetup(usernameInput: unknown, passwordInput: unknown): Promise<{
+    accessToken: string;
+    user: AuthenticatedUser;
+  }> {
+    const status = await this.getSetupStatus();
+    if (!status.needsSetup) {
+      throw new ForbiddenException('İlk yönetici hesabı zaten oluşturulmuş.');
+    }
+    const username = this.normalizeUsername(usernameInput);
+    if (
+      typeof passwordInput !== 'string' ||
+      passwordInput.length < 1 ||
+      passwordInput.length > 128 ||
+      passwordInput.trim() !== passwordInput
+    ) {
+      throw new UnprocessableEntityException('Parola 1-128 karakter olmalı ve başında/sonunda boşluk içermemeli.');
+    }
+
+    let user = await this.usersFile.upsert({
+      username,
+      role: 'admin',
+      password: passwordInput,
+    });
+    user = await this.ensureDatabaseUser(user);
+    const authenticatedUser = this.toAuthenticatedUser(user);
+    const accessToken = this.createToken();
+    await this.database.pool.query(
+      `INSERT INTO auth_sessions (token_hash, user_id, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '${SESSION_DURATION_HOURS} hours')`,
+      [this.hashToken(accessToken), user.id],
+    );
+    await this.audit.record({
+      actor: authenticatedUser,
+      action: 'auth.initial_setup',
+      entityType: 'auth',
+      entityId: user.id,
+    });
+
+    return { accessToken, user: authenticatedUser };
+  }
 
   async login(usernameInput: unknown, passwordInput: unknown): Promise<{
     accessToken: string;

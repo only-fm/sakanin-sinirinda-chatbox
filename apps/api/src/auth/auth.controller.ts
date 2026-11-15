@@ -21,6 +21,31 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('setup-status')
+  async getSetupStatus(): Promise<{ needsSetup: boolean }> {
+    return this.authService.getSetupStatus();
+  }
+
+  @Post('setup')
+  async setup(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: Awaited<ReturnType<AuthService['initialSetup']>>['user'] }> {
+    const input = readObjectBody(body);
+    const session = await this.authService.initialSetup(input.username, input.password);
+    response.cookie(`sakanin_${session.user.role}_session`, session.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/api',
+      maxAge: 12 * 60 * 60 * 1000,
+      ...(process.env.SESSION_COOKIE_DOMAIN
+        ? { domain: process.env.SESSION_COOKIE_DOMAIN }
+        : {}),
+    });
+    return { user: session.user };
+  }
+
   @Post('login')
   async login(
     @Body() body: unknown,

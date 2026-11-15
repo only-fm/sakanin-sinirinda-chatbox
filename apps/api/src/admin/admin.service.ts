@@ -231,12 +231,12 @@ function validateUsername(value: unknown): string {
 function validatePassword(value: unknown): string {
   if (
     typeof value !== 'string' ||
-    value.length < 12 ||
+    value.length < 1 ||
     value.length > 128 ||
     value.trim() !== value
   ) {
     throw new UnprocessableEntityException(
-      'Parola 12-128 karakter olmalı ve başında/sonunda boşluk içermemeli.',
+      'Parola 1-128 karakter olmalı ve başında/sonunda boşluk içermemeli.',
     );
   }
   return value;

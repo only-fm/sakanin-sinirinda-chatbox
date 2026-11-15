@@ -130,6 +130,20 @@ function StudentApp() {
   const [questionSaving, setQuestionSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [seenScenarioIds, setSeenScenarioIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('sakanin_seen_scenarios');
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupUsername, setSetupUsername] = useState('admin');
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupPasswordConfirm, setSetupPasswordConfirm] = useState('');
+  const [setupLoading, setSetupLoading] = useState(false);
 
   useEffect(() => {
     const viewport = window.matchMedia('(max-width: 760px)');
@@ -145,6 +159,16 @@ function StudentApp() {
     if (window.location.pathname === '/register') {
       window.history.replaceState(null, '', '/login');
     }
+  }, []);
+
+  useEffect(() => {
+    void request<{ needsSetup: boolean }>('/auth/setup-status')
+      .then((res) => {
+        if (res.needsSetup) {
+          setNeedsSetup(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -214,6 +238,30 @@ function StudentApp() {
     }
   }
 
+  async function handleInitialSetup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    if (setupPassword !== setupPasswordConfirm) {
+      setError('Girdiğiniz parolalar birbiriyle uyuşmuyor.');
+      return;
+    }
+    setSetupLoading(true);
+    try {
+      const result = await request<{ user: User }>('/auth/setup', {
+        username: setupUsername,
+        password: setupPassword,
+      });
+      setMessage('🎉 Yönetici hesabı oluşturuldu! Yönetici paneline yönlendiriliyorsunuz…');
+      setTimeout(() => {
+        window.location.assign(getAppUrl(result.user.role));
+      }, 1000);
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+      setSetupLoading(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
@@ -239,6 +287,15 @@ function StudentApp() {
     setMessage('');
     setActiveScenario(null);
     setScenarioLoading(true);
+    if (!seenScenarioIds.includes(id)) {
+      const next = [...seenScenarioIds, id];
+      setSeenScenarioIds(next);
+      try {
+        localStorage.setItem('sakanin_seen_scenarios', JSON.stringify(next));
+      } catch {
+        // localStorage hatasını sessizce yut
+      }
+    }
     try {
       const scenario = await request<ScenarioDetail>(`/scenarios/${id}`);
       setActiveScenario(scenario);
@@ -286,7 +343,9 @@ function StudentApp() {
             : scenario,
         ),
       );
-      setMessage('Değerlendirmen kaydedildi. Yanıtların yalnızca yetkili yönetici incelemesi için hesabınla ilişkilendirilir.');
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4500);
+      setMessage('🎉 Harika! Değerlendirmen kaydedildi. Yansıtıcı düşüncelerin güvenle saklandı.');
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     } finally {
@@ -321,16 +380,103 @@ function StudentApp() {
 
   if (loading) {
     return (
-      <main>
+      <main className="loading-screen">
+        <div className="spinner-loader" aria-hidden="true" />
         <p className="eyebrow">Şakanın Sınırında</p>
-        <p role="status">Oturum kontrol ediliyor…</p>
+        <p role="status" className="loading-text">Oturum kontrol ediliyor…</p>
       </main>
     );
+  }
+
+  if (needsSetup) {
+    return (
+      <main className="setup-wizard-screen">
+        <div className="ambient-background" aria-hidden="true">
+          <div className="ambient-orb orb-1" />
+          <div className="ambient-orb orb-2" />
+        </div>
+        <div className="setup-wizard-card">
+          <div className="setup-wizard-header">
+            <div className="setup-badge-icon" aria-hidden="true">
+              <span>⚙️</span>
+            </div>
+            <p className="eyebrow">İLK KURULUM SİHİRBAZI</p>
+            <h1>Yönetici Hesabını Oluşturun</h1>
+            <p className="setup-subtitle">
+              Sistemde henüz bir yönetici hesabı bulunmuyor. Platformu yönetmek ve senaryolar eklemek için
+              ilk yönetici hesabınızı şimdi belirleyin.
+            </p>
+          </div>
+
+          <form className="setup-wizard-form" onSubmit={(e) => void handleInitialSetup(e)}>
+            <label htmlFor="setup-username">Yönetici Kullanıcı Adı</label>
+            <input
+              autoComplete="username"
+              id="setup-username"
+              maxLength={32}
+              minLength={3}
+              onChange={(e) => setSetupUsername(e.target.value)}
+              required
+              type="text"
+              value={setupUsername}
+            />
+
+            <label htmlFor="setup-password">Yönetici Parolası</label>
+            <input
+              autoComplete="new-password"
+              id="setup-password"
+              maxLength={128}
+              minLength={1}
+              onChange={(e) => setSetupPassword(e.target.value)}
+              placeholder="İstediğiniz parolayı belirleyin"
+              required
+              type="password"
+              value={setupPassword}
+            />
+
+            <label htmlFor="setup-password-confirm">Parola Tekrarı</label>
+            <input
+              autoComplete="new-password"
+              id="setup-password-confirm"
+              maxLength={128}
+              minLength={1}
+              onChange={(e) => setSetupPasswordConfirm(e.target.value)}
+              placeholder="Parolanızı tekrar girin"
+              required
+              type="password"
+              value={setupPasswordConfirm}
+            />
+
+            <button className="primary-button setup-submit-btn" disabled={setupLoading} type="submit">
+              {setupLoading ? 'Oluşturuluyor…' : 'Yönetici Hesabını Oluştur ve Başla 🚀'}
+            </button>
+          </form>
+
+          {message && <p className="success" role="status">{message}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
+        </div>
+      </main>
+    );
+  }
+
+  const completedCount = scenarios.filter((s) => s.hasResponse).length;
+  const totalCount = scenarios.length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  function isScenarioNew(scenario: ScenarioSummary): boolean {
+    if (scenario.hasResponse) return false;
+    if (!seenScenarioIds.includes(scenario.id)) return true;
+    if (scenario.publishedAt) {
+      const diffHours = (Date.now() - new Date(scenario.publishedAt).getTime()) / (1000 * 60 * 60);
+      return diffHours < 48;
+    }
+    return false;
   }
 
   if (user) {
     return (
       <main className={`student-shell${sidebarOpen ? ' sidebar-open' : ''}`}>
+        {showConfetti && <ConfettiEffect />}
         {sidebarOpen && <button className="sidebar-backdrop" aria-label="Menüyü kapat" onClick={() => setSidebarOpen(false)} type="button" />}
         <aside className="student-sidebar">
           <div className="sidebar-brand">
@@ -372,7 +518,7 @@ function StudentApp() {
 
         <div className="student-workspace">
           <header className="student-header">
-            <div>
+            <div className="header-title-group">
               <button
                 aria-expanded={sidebarOpen}
                 aria-label={sidebarOpen ? 'Menüyü kapat' : 'Menüyü aç'}
@@ -382,7 +528,12 @@ function StudentApp() {
               >
                 ☰
               </button>
-              <h1>Merhaba, {user.username}</h1>
+              <div className="header-greeting-wrap">
+                <h1>
+                  Merhaba, {user.username} <span className="wave-emoji" aria-hidden="true">👋</span>
+                </h1>
+                <p className="header-subtitle">Düşüncelerini ve bakış açılarını keşfetmeye hazır mısın?</p>
+              </div>
             </div>
           </header>
 
@@ -496,46 +647,75 @@ function StudentApp() {
                 <p>{activeScenario.context}</p>
               </section>
               <section className="content-section">
-                <h2>Farklı bakış açıları</h2>
+                <div className="section-header-badge">
+                  <span className="badge-icon" aria-hidden="true">👥</span>
+                  <h2>Farklı bakış açıları</h2>
+                </div>
                 <div className="perspective-grid">
-                  {activeScenario.perspectives.map((perspective) => (
-                    <article className="perspective-card" key={perspective.id}>
-                      <h3>{perspective.label}</h3>
-                      <p>{perspective.text}</p>
-                    </article>
-                  ))}
+                  {activeScenario.perspectives.map((perspective, idx) => {
+                    const avatars = ['👀', '🎯', '🗣️', '💭', '🤝'];
+                    const avatar = avatars[idx % avatars.length];
+                    return (
+                      <article className="perspective-card" key={perspective.id}>
+                        <div className="perspective-card-top">
+                          <span className="perspective-avatar" aria-hidden="true">{avatar}</span>
+                          <h3>{perspective.label}</h3>
+                        </div>
+                        <p>{perspective.text}</p>
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
-              <section className="content-section">
-                <h2>Üzerine düşün</h2>
+              <section className="content-section reflection-section">
+                <div className="section-header-badge">
+                  <span className="badge-icon" aria-hidden="true">💡</span>
+                  <h2>Üzerine düşün</h2>
+                </div>
                 <p className="muted">
-                  Yanıtların doğru/yanlış olarak değerlendirilmez; kendi düşünceni paylaşabilirsin.
+                  Yanıtların doğru/yanlış olarak değerlendirilmez; kendi düşünceni özgürce paylaşabilirsin.
                 </p>
                 <form className="reflection-form" onSubmit={(event) => void saveAnswers(event)}>
                   <fieldset className="classification-fieldset">
                     <legend>Bu durumu nasıl değerlendiriyorsun?</legend>
-                    <label>
-                      <input
-                        checked={classification === 'joke'}
-                        name="classification"
-                        onChange={() => setClassification('joke')}
-                        required
-                        type="radio"
-                        value="joke"
-                      />
-                      Şaka
-                    </label>
-                    <label>
-                      <input
-                        checked={classification === 'bullying'}
-                        name="classification"
-                        onChange={() => setClassification('bullying')}
-                        required
-                        type="radio"
-                        value="bullying"
-                      />
-                      Zorbalık
-                    </label>
+                    <div className="classification-cards">
+                      <label className={`classification-card joke ${classification === 'joke' ? 'selected' : ''}`}>
+                        <input
+                          checked={classification === 'joke'}
+                          name="classification"
+                          onChange={() => setClassification('joke')}
+                          required
+                          type="radio"
+                          value="joke"
+                        />
+                        <div className="classification-card-inner">
+                          <span className="classification-emoji" aria-hidden="true">🎭</span>
+                          <div className="classification-info">
+                            <strong>Şaka</strong>
+                            <small>Karşılıklı eğlence, iyi niyetli ve herkesin gülümsediği durum</small>
+                          </div>
+                          <span className="classification-check" aria-hidden="true">✓</span>
+                        </div>
+                      </label>
+                      <label className={`classification-card bullying ${classification === 'bullying' ? 'selected' : ''}`}>
+                        <input
+                          checked={classification === 'bullying'}
+                          name="classification"
+                          onChange={() => setClassification('bullying')}
+                          required
+                          type="radio"
+                          value="bullying"
+                        />
+                        <div className="classification-card-inner">
+                          <span className="classification-emoji" aria-hidden="true">🛑</span>
+                          <div className="classification-info">
+                            <strong>Zorbalık</strong>
+                            <small>İncitici, güç dengesizliği veya tekrarlayan baskı içeren durum</small>
+                          </div>
+                          <span className="classification-check" aria-hidden="true">✓</span>
+                        </div>
+                      </label>
+                    </div>
                   </fieldset>
                   <label htmlFor="classification-reason">Neden böyle düşündüğünü açıkla</label>
                   <textarea
@@ -570,7 +750,26 @@ function StudentApp() {
               </section>
             </>
           ) : (
-            <section className="content-section">
+            <section className="content-section scenarios-overview-section">
+              <div className="student-hero-banner">
+                <div className="hero-progress-card">
+                  <div className="progress-info">
+                    <span className="progress-label">🌟 Senaryo Keşif Yolculuğun</span>
+                    <span className="progress-count">{completedCount} / {totalCount} Tamamlandı</span>
+                  </div>
+                  <div className="progress-bar-track">
+                    <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <p className="progress-status-text">
+                    {progressPercent === 100
+                      ? '🎉 Tebrikler! Tüm senaryoları inceleyip düşüncelerini kaydettin.'
+                      : progressPercent > 0
+                        ? '🚀 Harika bir başlangıç! Kalan senaryoları keşfetmeye devam et.'
+                        : '✨ Başlamak için aşağıdaki senaryolardan birini seçip incele.'}
+                  </p>
+                </div>
+              </div>
+
               <div className="section-title-row">
                 <div>
                   <p className="eyebrow">KEŞFET VE DÜŞÜN</p>
@@ -579,25 +778,44 @@ function StudentApp() {
                 <span className="scenario-count">{scenarios.length} senaryo</span>
               </div>
               {scenarios.length === 0 ? (
-                <p className="empty-state">Henüz yayımlanmış senaryo yok.</p>
+                <div className="empty-state-card">
+                  <span className="empty-icon" aria-hidden="true">🌿</span>
+                  <p className="empty-state">Henüz yayımlanmış bir senaryo bulunmuyor.</p>
+                </div>
               ) : (
                 <ul className="student-scenario-list">
-                  {scenarios.map((scenario) => (
-                    <li key={scenario.id}>
-                      <button
-                        className="student-scenario-card"
-                        onClick={() => void openScenario(scenario.id)}
-                        type="button"
-                      >
-                        <span className="scenario-card-icon" aria-hidden="true">✳</span>
-                        <span className="scenario-card-copy">
-                          <strong>{scenario.title}</strong>
-                          <small>{scenario.hasResponse ? 'Yanıtların kaydedildi' : 'Keşfetmeye başla'}</small>
-                        </span>
-                        <span className="scenario-card-arrow" aria-hidden="true">→</span>
-                      </button>
-                    </li>
-                  ))}
+                  {scenarios.map((scenario, index) => {
+                    const isNew = isScenarioNew(scenario);
+                    return (
+                      <li key={scenario.id} style={{ animationDelay: `${index * 0.08}s` }}>
+                        <button
+                          className={`student-scenario-card ${
+                            scenario.hasResponse ? 'card-completed' : isNew ? 'card-new' : 'card-pending'
+                          }`}
+                          onClick={() => void openScenario(scenario.id)}
+                          type="button"
+                        >
+                          <span className="scenario-card-icon" aria-hidden="true">
+                            {scenario.hasResponse ? '✅' : isNew ? '✨' : '💡'}
+                          </span>
+                          <span className="scenario-card-copy">
+                            <span className="scenario-title-row-card">
+                              <strong>{scenario.title}</strong>
+                              {isNew && <span className="scenario-new-pill">YENİ!</span>}
+                            </span>
+                            <span className="scenario-card-status-chip">
+                              {scenario.hasResponse
+                                ? '🌟 Yanıtların Kaydedildi'
+                                : isNew
+                                  ? '🔥 Yeni Eklendi · İlk Keşfeden Ol'
+                                  : '✨ Keşfetmeye Başla'}
+                            </span>
+                          </span>
+                          <span className="scenario-card-arrow" aria-hidden="true">→</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
@@ -618,24 +836,28 @@ function StudentApp() {
 
   return (
     <main className="login-screen">
+      <div className="ambient-background" aria-hidden="true">
+        <div className="ambient-orb orb-1" />
+        <div className="ambient-orb orb-2" />
+        <div className="ambient-orb orb-3" />
+      </div>
       <section className="login-aside" aria-label="Şakanın Sınırında hakkında">
-        <p className="brand-mark" aria-hidden="true">ŞS</p>
-        <p className="aside-kicker">Birlikte düşünmek için güvenli bir alan</p>
+        <div className="brand-mark-wrapper">
+          <p className="brand-mark" aria-hidden="true">ŞS</p>
+          <span className="brand-sparkle" aria-hidden="true">✨</span>
+        </div>
+        <p className="aside-kicker">Birlikte düşünmek için güvenli ve keyifli bir alan</p>
         <h1>Şaka nerede biter, incitmek nerede başlar?</h1>
         <p>
           Farklı bakış açılarına yer aç. Kendi düşünceni keşfet; yanıtların doğru ya da
           yanlış diye değerlendirilmez.
         </p>
-        <div className="privacy-note">
-          <span aria-hidden="true">✳</span>
-          <span>Yanıtlarını yalnızca yetkili ekip senin hesabınla ilişkilendirerek inceler.</span>
-        </div>
       </section>
       <section className="login-content">
         <p className="eyebrow">Şakanın Sınırında · Ortak giriş</p>
-        <h2>Tekrar hoş geldin</h2>
+        <h2>Tekrar hoş geldin!</h2>
         <p className="intro">
-          Devam etmek için kullanıcı adın ve parolanla giriş yap.
+          Düşüncelerini keşfetmek ve değerlendirmek için kullanıcı adın ve parolanla giriş yap.
         </p>
         <form onSubmit={(event) => void handleSubmit(event)}>
           <label htmlFor="username">Kullanıcı adı</label>
@@ -780,6 +1002,25 @@ function StudentTutorial(props: { step: number; onNext: () => void; onFinish: ()
         </button>
       </div>
     </aside>
+  );
+}
+
+function ConfettiEffect() {
+  const pieces = Array.from({ length: 32 });
+  return (
+    <div className="confetti-container" aria-hidden="true">
+      {pieces.map((_, i) => (
+        <span
+          className={`confetti-piece p-${i % 6}`}
+          key={i}
+          style={{
+            left: `${(i * 3.1) + ((i * 7) % 5)}%`,
+            animationDelay: `${(i % 6) * 0.1}s`,
+            animationDuration: `${2.2 + ((i % 4) * 0.3)}s`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 

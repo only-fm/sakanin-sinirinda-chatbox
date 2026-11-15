@@ -45,7 +45,7 @@ export class UsersFileService implements OnModuleInit {
       if (typeof entry.passwordHash !== 'string') {
         if (
           typeof entry.password !== 'string' ||
-          entry.password.length < 12 ||
+          entry.password.length < 1 ||
           entry.password.length > 128 ||
           entry.password.trim() !== entry.password
         ) {

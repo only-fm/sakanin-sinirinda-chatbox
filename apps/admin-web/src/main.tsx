@@ -695,13 +695,13 @@ function AdminApp() {
             <input
               autoComplete="new-password"
               id="account-password"
-              minLength={accountForm.password || !editingUserId ? 12 : undefined}
+              minLength={accountForm.password || !editingUserId ? 1 : undefined}
               onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })}
               required={!editingUserId}
               type="password"
               value={accountForm.password}
             />
-            <p className="hint">Parola 12-128 karakter olmalı. Parolalar ve hash'leri loglara yazılmaz.</p>
+            <p className="hint">Parola en fazla 128 karakter olabilir. Parolalar ve hash'leri loglara yazılmaz.</p>
             <div className="form-actions">
               <button className="primary-button" disabled={accountSaving} type="submit">
                 {accountSaving ? 'Kaydediliyor…' : editingUserId ? 'Değişiklikleri kaydet' : 'Hesap oluştur'}

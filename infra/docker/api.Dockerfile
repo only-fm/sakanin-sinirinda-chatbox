@@ -2,6 +2,7 @@ FROM node:22-alpine AS base
 WORKDIR /workspace
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/package.json
+COPY apps/landing-web/package.json ./apps/landing-web/package.json
 COPY apps/student-web/package.json ./apps/student-web/package.json
 COPY apps/teacher-web/package.json ./apps/teacher-web/package.json
 COPY apps/admin-web/package.json ./apps/admin-web/package.json

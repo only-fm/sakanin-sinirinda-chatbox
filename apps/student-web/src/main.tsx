@@ -134,6 +134,7 @@ function StudentApp() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loginState, setLoginState] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [loading, setLoading] = useState(true);
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
   const [activeScenario, setActiveScenario] = useState<ScenarioDetail | null>(null);
@@ -298,18 +299,18 @@ function StudentApp() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setLoginState('submitting');
     try {
       const result = await request<{ user: User }>('/auth/login', {
         username,
         password,
       });
-      if (result.user.role !== 'student') {
-        window.location.assign(getAppUrl(result.user.role));
-        return;
-      }
-      window.location.assign(getAppUrl('student'));
+      const destination = getAppUrl(result.user.role);
+      setLoginState('success');
+      window.setTimeout(() => window.location.assign(destination), 1200);
     } catch (cause: unknown) {
       setError(errorMessage(cause));
+      setLoginState('idle');
     }
   }
 
@@ -907,11 +908,30 @@ function StudentApp() {
             type="password"
             value={password}
           />
-          <button className="primary-button" type="submit">Giriş yap</button>
+          <button className="primary-button" disabled={loginState !== 'idle'} type="submit">
+            {loginState === 'submitting' ? 'Giriş yapılıyor…' : 'Giriş yap'}
+          </button>
         </form>
         {message && <p className="success" role="status">{message}</p>}
         {error && <p className="error" role="alert">{error}</p>}
       </section>
+      {loginState === 'success' && (
+        <div className="login-success-screen" role="status" aria-live="polite">
+          <div className="login-success-card">
+            <div className="login-success-icon" aria-hidden="true">
+              <svg viewBox="0 0 52 52">
+                <circle cx="26" cy="26" r="24" />
+                <path d="m15 27 7 7 15-16" />
+              </svg>
+            </div>
+            <h2>Oturum açıldı!</h2>
+            <p>Sisteme yönlendiriliyorsun…</p>
+            <div className="login-success-progress" aria-hidden="true">
+              <span />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -34,7 +34,7 @@ function getAppUrl(role: UserRole): string {
   if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
     appUrl.hostname = window.location.hostname;
   }
-  if (!configuredUrl) {
+  if (!configuredUrl || import.meta.env.DEV) {
     appUrl.port = String(
       role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
         : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)

@@ -8,6 +8,17 @@ const LOGIN_URL =
 const API_BASE = import.meta.env.DEV
   ? '/api'
   : import.meta.env.VITE_API_BASE_URL || '/api';
+type UserRole = 'student' | 'teacher' | 'admin';
+type User = {
+  id: string;
+  username: string;
+  role: UserRole;
+};
+const APP_URLS: Record<UserRole, string | undefined> = {
+  student: import.meta.env.VITE_STUDENT_APP_URL,
+  teacher: import.meta.env.VITE_TEACHER_APP_URL,
+  admin: import.meta.env.VITE_ADMIN_APP_URL,
+};
 
 function getLoginUrl(): string {
   const loginUrl = new URL(LOGIN_URL, window.location.origin);
@@ -17,12 +28,57 @@ function getLoginUrl(): string {
   return loginUrl.toString().replace(/\/$/, '');
 }
 
+function getAppUrl(role: UserRole): string {
+  const configuredUrl = APP_URLS[role];
+  const appUrl = new URL(configuredUrl || window.location.origin, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  if (!configuredUrl) {
+    appUrl.port = String(
+      role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
+        : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)
+          : (import.meta.env.DEV ? 5175 : 8083),
+    );
+  }
+  return appUrl.origin;
+}
+
 function LandingApp() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [sessionCheckError, setSessionCheckError] = useState(false);
+
   const handleLoginClick = () => {
-    window.location.href = getLoginUrl();
+    window.location.assign(currentUser ? getAppUrl(currentUser.role) : getLoginUrl());
   };
 
   const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const roles: UserRole[] = ['student', 'teacher', 'admin'];
+    void (async () => {
+      try {
+        const users = await Promise.all(
+          roles.map(async (role) => {
+            const response = await fetch(`${API_BASE}/auth/me?role=${role}`, {
+              credentials: 'include',
+            });
+            if (response.status === 401 || response.status === 403) return null;
+            if (!response.ok) {
+              throw new Error(`Oturum kontrolü başarısız oldu (${response.status}).`);
+            }
+            return (await response.json()) as User;
+          }),
+        );
+        setCurrentUser(users.find((user) => user !== null) ?? null);
+      } catch {
+        setSessionCheckError(true);
+      } finally {
+        setSessionChecked(true);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     void fetch(`${API_BASE}/auth/setup-status`, { credentials: 'include' })
@@ -61,8 +117,8 @@ function LandingApp() {
           <a href="#degerler">İlkelerimiz</a>
         </nav>
         <div className="nav-actions">
-          <button className="nav-login-btn" onClick={handleLoginClick} type="button">
-            Oturum Aç →
+          <button className="nav-login-btn" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+            {!sessionChecked ? 'Kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Aç →'}
           </button>
         </div>
       </header>
@@ -84,8 +140,8 @@ function LandingApp() {
         </p>
 
         <div className="hero-cta-group">
-          <button className="primary-cta-btn" onClick={handleLoginClick} type="button">
-            <span>Platforma Giriş Yap</span>
+          <button className="primary-cta-btn" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+            <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Platforma Giriş Yap'}</span>
             <span className="btn-icon">🚀</span>
           </button>
           <a className="secondary-cta-btn" href="#farklar">
@@ -216,10 +272,13 @@ function LandingApp() {
           <span className="cta-sparkle" aria-hidden="true">✨</span>
           <h2>Farkındalık Yolculuğuna Başlamaya Hazır mısın?</h2>
           <p>Öğrenci, öğretmen veya yönetici hesabınla hemen oturum aç ve keşfetmeye başla.</p>
-          <button className="primary-cta-btn pulse-glow" onClick={handleLoginClick} type="button">
-            <span>Oturum Açma Sayfasına Git</span>
+          <button className="primary-cta-btn pulse-glow" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+            <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Açma Sayfasına Git'}</span>
             <span className="btn-icon">→</span>
           </button>
+          {sessionCheckError && (
+            <p role="status">Oturum kontrol edilemedi; devam etmek için giriş sayfasına yönlendirileceksiniz.</p>
+          )}
         </div>
       </section>
 

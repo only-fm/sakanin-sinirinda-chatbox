@@ -1,7 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { UserRole } from '../auth/auth.types';
 import { hashPassword } from '../auth/password-hasher';
 
@@ -20,12 +20,21 @@ interface UsersDocument {
 
 @Injectable()
 export class UsersFileService implements OnModuleInit {
+  private readonly logger = new Logger(UsersFileService.name);
   private readonly filePath =
     process.env.USERS_FILE ?? resolve(__dirname, '../../../../config/users.json');
   private writeQueue: Promise<void> = Promise.resolve();
 
   async onModuleInit(): Promise<void> {
-    await this.getUsers();
+    const users = await this.getUsers();
+    const hasAdmin = users.some((user) => user.type === 'admin');
+    if (hasAdmin) {
+      this.logger.log('Yönetici hesabı mevcut.');
+      return;
+    }
+    this.logger.warn(
+      'Yönetici hesabı yok. Giriş ekranı ilk yönetici hesabının oluşturulmasını isteyecek.',
+    );
   }
 
   async getUsers(): Promise<UserFileEntry[]> {
@@ -190,7 +199,18 @@ export class UsersFileService implements OnModuleInit {
   }
 
   private async readDocument(): Promise<{ users: Array<Record<string, unknown>> }> {
-    const contents = await readFile(this.filePath, 'utf8');
+    let contents: string;
+    try {
+      contents = await readFile(this.filePath, 'utf8');
+    } catch (error: unknown) {
+      if (!isMissingFile(error)) throw error;
+      await mkdir(dirname(this.filePath), { recursive: true });
+      await this.writeDocument({ users: [] });
+      this.logger.warn(
+        `users.json bulunamadı, boş dosya oluşturuldu: ${this.filePath}. Yönetici hesabı oluşturulana kadar kurulum ekranı açık kalacak.`,
+      );
+      return { users: [] };
+    }
     let value: unknown;
     try {
       value = JSON.parse(contents);
@@ -229,6 +249,15 @@ export class UsersFileService implements OnModuleInit {
     this.writeQueue = write.catch(() => undefined);
     await write;
   }
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
 }
 
 function isUserRole(value: unknown): value is UserRole {

@@ -4,15 +4,34 @@ import './style.css';
 
 const LOGIN_URL =
   import.meta.env.VITE_LOGIN_APP_URL ||
-  import.meta.env.VITE_STUDENT_APP_URL ||
-  (import.meta.env.DEV ? 'http://localhost:5173' : 'http://localhost:8081');
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_API_BASE_URL || '/api';
+
+function getLoginUrl(): string {
+  const loginUrl = new URL(LOGIN_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(loginUrl.hostname)) {
+    loginUrl.hostname = window.location.hostname;
+  }
+  return loginUrl.toString().replace(/\/$/, '');
+}
 
 function LandingApp() {
   const handleLoginClick = () => {
-    window.location.href = LOGIN_URL;
+    window.location.href = getLoginUrl();
   };
 
   const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    void fetch(`${API_BASE}/auth/setup-status`, { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((status: { needsSetup?: boolean } | null) => {
+        if (status?.needsSetup) window.location.replace(`${getLoginUrl()}/setup`);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);

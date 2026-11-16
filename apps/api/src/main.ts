@@ -6,7 +6,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api');
   const allowedOrigins = (
     process.env.WEB_ORIGINS ??
-    'http://localhost:5173,http://localhost:5174,http://localhost:5175'
+    'http://localhost:5170,http://localhost:5173,http://localhost:5174,http://localhost:5175'
   )
     .split(',')
     .map((origin) => origin.trim())

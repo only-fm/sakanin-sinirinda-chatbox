@@ -7,12 +7,15 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "create:users": "npm run build --workspace apps/api && docker compose -f compose.yaml -f compose.dev.yaml exec api npm run provision:users --workspace apps/api"
+    "create:users": "npm run build --workspace apps/api && docker compose exec api npm run provision:users --workspace apps/api"
   },
   "overrides": {
     "path-to-regexp": "^8.4.2"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

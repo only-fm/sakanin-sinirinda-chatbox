@@ -5,7 +5,17 @@ coverage/
 .env.*
 !.env.example
 config/users.json
+/config/*
+!/config/users.example.json
 scenarios/videos/*
 !scenarios/videos/.gitkeep
+logs/
+**/logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 *.tsbuildinfo
 .DS_Store

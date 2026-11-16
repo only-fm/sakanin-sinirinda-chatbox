@@ -1,11 +1,13 @@
 FROM node:22-alpine AS frontend-base
 WORKDIR /workspace
 ARG VITE_LANDING_APP_URL=http://localhost:8080
+ARG VITE_LOGIN_APP_URL=http://localhost:8080
 ARG VITE_STUDENT_APP_URL=http://localhost:8081
 ARG VITE_TEACHER_APP_URL=http://localhost:8082
 ARG VITE_ADMIN_APP_URL=http://localhost:8083
 ARG VITE_API_BASE_URL=/api
 ENV VITE_LANDING_APP_URL=$VITE_LANDING_APP_URL
+ENV VITE_LOGIN_APP_URL=$VITE_LOGIN_APP_URL
 ENV VITE_STUDENT_APP_URL=$VITE_STUDENT_APP_URL
 ENV VITE_TEACHER_APP_URL=$VITE_TEACHER_APP_URL
 ENV VITE_ADMIN_APP_URL=$VITE_ADMIN_APP_URL
@@ -25,7 +27,7 @@ CMD ["npm", "run", "dev", "--workspace", "apps/landing-web", "--", "--host", "0.
 
 FROM frontend-base AS student-development
 COPY apps/student-web ./apps/student-web
-EXPOSE 5173
+EXPOSE 5170 5173
 CMD ["npm", "run", "dev", "--workspace", "apps/student-web", "--", "--host", "0.0.0.0"]
 
 FROM frontend-base AS teacher-development

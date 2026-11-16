@@ -67,25 +67,43 @@ class ApiRequestError extends Error {
   }
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? `${window.location.protocol}//${window.location.hostname}:3000/api`
-    : '/api');
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_API_BASE_URL || '/api';
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
 const APP_URLS: Record<User['role'], string> = {
   student: import.meta.env.VITE_STUDENT_APP_URL,
   teacher: import.meta.env.VITE_TEACHER_APP_URL,
   admin: import.meta.env.VITE_ADMIN_APP_URL,
 };
 
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
+
+function isLoginApp(): boolean {
+  return window.location.origin === getLoginAppUrl();
+}
+
 function getAppUrl(role: User['role']): string {
-  if (APP_URLS[role]) return APP_URLS[role];
-  const appUrl = new URL(window.location.origin);
-  appUrl.port = String(
-    role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
-      : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)
-        : (import.meta.env.DEV ? 5175 : 8083),
-  );
+  const configuredUrl = APP_URLS[role];
+  const appUrl = new URL(configuredUrl || window.location.origin, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  if (!configuredUrl) {
+    appUrl.port = String(
+      role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
+        : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)
+          : (import.meta.env.DEV ? 5175 : 8083),
+    );
+  }
   return appUrl.origin;
 }
 
@@ -162,43 +180,57 @@ function StudentApp() {
   }, []);
 
   useEffect(() => {
-    void request<{ needsSetup: boolean }>('/auth/setup-status')
-      .then((res) => {
-        if (res.needsSetup) {
-          setNeedsSetup(true);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
     const roles: User['role'][] = ['student', 'teacher', 'admin'];
-    void Promise.all(
-      roles.map(async (role) => {
-        try {
-          return await request<User>(`/auth/me?role=${role}`);
-        } catch (cause: unknown) {
-          if (isUnauthorized(cause)) return null;
-          throw cause;
+    void (async () => {
+      try {
+        const status = await request<{ needsSetup: boolean }>('/auth/setup-status');
+        if (status.needsSetup) {
+          if (!isLoginApp()) {
+            window.location.replace(`${getLoginAppUrl()}/setup`);
+            return;
+          }
+          setNeedsSetup(true);
+          if (window.location.pathname !== '/setup') {
+            window.history.replaceState(null, '', '/setup');
+          }
+          return;
         }
-      })
-    )
-      .then((users) => {
+        const users = await Promise.all(
+          roles.map(async (role) => {
+            try {
+              return await request<User>(`/auth/me?role=${role}`);
+            } catch (cause: unknown) {
+              if (isUnauthorized(cause)) return null;
+              throw cause;
+            }
+          }),
+        );
         const currentUser = users.find((candidate) => candidate !== null);
-        if (!currentUser) return;
+        if (!currentUser) {
+          if (!isLoginApp()) {
+            window.location.replace(`${getLoginAppUrl()}/login`);
+          }
+          return;
+        }
         if (currentUser.role === 'student') {
+          if (isLoginApp()) {
+            window.location.replace(getAppUrl('student'));
+            return;
+          }
           setUser(currentUser);
           if (!currentUser.tutorialCompleted) {
             setTutorialStep(0);
             setSidebarOpen(window.matchMedia('(max-width: 760px)').matches);
           }
+        } else {
+          window.location.replace(getAppUrl(currentUser.role));
         }
-        else window.location.replace(getAppUrl(currentUser.role));
-      })
-      .catch((cause: unknown) => {
+      } catch (cause: unknown) {
         setError(errorMessage(cause));
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -275,8 +307,7 @@ function StudentApp() {
         window.location.assign(getAppUrl(result.user.role));
         return;
       }
-      setUser(result.user);
-      setPassword('');
+      window.location.assign(getAppUrl('student'));
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -357,12 +388,7 @@ function StudentApp() {
     setError('');
     try {
       await request('/auth/logout?role=student', {});
-      setUser(null);
-      setScenarios([]);
-      setActiveScenario(null);
-      setAnswers({});
-      window.history.replaceState(null, '', '/');
-      setMessage('Oturum kapatıldı.');
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }

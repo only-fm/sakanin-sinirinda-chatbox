@@ -11,14 +11,15 @@
 
 1. `.env.example` dosyasını `.env` adıyla kopyalayın. Yerel örnek parolayı yalnızca yerel geliştirme için kullanın; paylaşılan ortamlarda değiştirin.
 2. Bağımlılıkları kurun: `npm install`
-3. Geliştirme servislerini başlatın: `docker compose -f compose.yaml -f compose.dev.yaml up --build`
+3. Geliştirme servislerini başlatın: `docker compose up --build`
 4. Uygulamalar (ayrı geliştirme portları):
-   - Ortak giriş ekranı: <http://localhost:5173>
+   - Ortak giriş ekranı: <http://localhost:5170>
+   - Öğrenci çalışma alanı: <http://localhost:5173>
    - Öğretmen/uzman çalışma alanı: <http://localhost:5174>
    - Yönetici çalışma alanı: <http://localhost:5175>
    - API sağlık kontrolü: <http://localhost:3000/api/health>
 
-Geliştirme port eşlemesi API `3000`, giriş/öğrenci `5173`, öğretmen/uzman `5174`, yönetici `5175` şeklindedir. Site açıldığında ortak giriş ekranı gösterilir; yalnızca kullanıcı adı ve parola alınır, hesabın rolü bulunup ilgili arayüze yönlendirilir. Öğretmen ve yönetici adresleri doğrudan açılırsa, oturum yokken ortak giriş ekranına gider. Öğrenci kayıt ekranı kapalıdır; `config/users.json` hesapların tek kaynağıdır. Yönetici panelindeki hesap işlemleri de bu dosyaya yazılır. Parolalar dosyada scrypt ile hash'lenir; dosyayı yine de paylaşmayın veya Git'e eklemeyin. Frontend API adresi bu port düzeniyle eşleşir.
+Geliştirme port eşlemesi API `3000`, giriş `5170`, öğrenci `5173`, öğretmen/uzman `5174` ve yönetici `5175` şeklindedir. Giriş ekranında yalnızca kullanıcı adı ve parola alınır, hesabın rolü bulunup ilgili arayüze yönlendirilir. Öğrenci kayıt ekranı kapalıdır; `config/users.json` hesapların tek kaynağıdır. Yönetici panelindeki hesap işlemleri de bu dosyaya yazılır. Parolalar dosyada scrypt ile hash'lenir; dosyayı yine de paylaşmayın veya Git'e eklemeyin. Frontend API istekleri aynı origin'deki `/api` yolunu kullanır ve geliştirme sunucusu bunları API'ye proxy eder. Yerel ağdan erişirken `localhost` yerine sunucunun yerel IP adresini ve ilgili frontend portunu kullanın.
 
 Öğrenciler sol menüdeki **Uzmana Sor** alanından uzmanlara özel soru gönderebilir ve yanıtlarını görebilir. Soru ve yanıtı soruyu gönderen öğrenci, uzmanlar ve yöneticiler görebilir. Uzman panelinde **Öğrenci soruları** ve **Senaryo inceleme** bölümleri bulunur; inceleme alanında yayımlanmış senaryo içerikleri gösterilir, öğrenci yanıtları gösterilmez. Öğrenciler senaryoları şaka veya zorbalık olarak sınıflandırıp gerekçe ve yansıtıcı yanıtlar gönderir; yöneticiler **Öğrenci değerlendirmeleri** bölümünde kullanıcı/senaryo filtreleriyle inceleyebilir. Masaüstünde sol menü sabittir; telefonda menü düğmesiyle açılır ve yalnızca içerik alanı kaydırılır.
 
@@ -39,11 +40,11 @@ Proje dizininde geliştirme ortamını hazırlayıp başlatın:
 ```bash
 test -f .env || cp .env.example .env
 nano .env
-docker compose -f compose.yaml -f compose.dev.yaml up --build -d
-docker compose -f compose.yaml -f compose.dev.yaml ps
+docker compose up --build -d
+docker compose ps
 ```
 
-`.env` içindeki örnek parolayı yalnızca yerel geliştirmede kullanın. Varsayılan geliştirme portları `.env` içindeki `API_PORT`, `STUDENT_DEV_PORT`, `TEACHER_DEV_PORT`, `ADMIN_DEV_PORT` değerleriyle ayarlanır. Bir portu değiştirdiğinizde ilgili frontend URL'si ve API adresi Compose tarafından aynı değişkenden oluşturulur; yeni portların uygulanması için `up --build` ile yeniden başlatın. WSL içinden ve Windows tarayıcısından `http://localhost:5173`, `http://localhost:5174` ve `http://localhost:5175` adreslerini açın; API sağlık kontrolü `http://localhost:3000/api/health` adresindedir. Loglar için `docker compose -f compose.yaml -f compose.dev.yaml logs -f`; durdurmak için `docker compose -f compose.yaml -f compose.dev.yaml down` çalıştırın. Veritabanı verisi `postgres_data` volume'unda kalır; `down -v` bu veriyi de siler.
+`.env` içindeki örnek parolayı yalnızca yerel geliştirmede kullanın. Varsayılan geliştirme portları `.env` içindeki `API_PORT`, `LOGIN_DEV_PORT`, `STUDENT_DEV_PORT`, `TEACHER_DEV_PORT`, `ADMIN_DEV_PORT` değerleriyle ayarlanır. Bir portu değiştirdiğinizde ilgili frontend host portu Compose tarafından aynı değişkenden oluşturulur; yeni portların uygulanması için `up --build` ile yeniden başlatın. WSL içinden ve Windows tarayıcısından `http://localhost:5170` (giriş), `http://localhost:5173` (öğrenci), `http://localhost:5174` ve `http://localhost:5175` adreslerini açın. Yerel ağdaki başka bir cihazdan bağlanmak için `localhost` yerine sunucunun yerel IP adresini kullanın; frontend API çağrıları aynı origin üzerinden proxy edildiğinden API portunu tarayıcıya açmanız gerekmez. API sağlık kontrolü `http://localhost:3000/api/health` adresindedir. Loglar için `docker compose logs -f`; durdurmak için `docker compose down` çalıştırın. Veritabanı verisi `postgres_data` volume'unda kalır; `down -v` bu veriyi de siler.
 
 ## Derleme ve tür denetimi
 
@@ -55,11 +56,11 @@ docker compose -f compose.yaml -f compose.dev.yaml ps
 
 1. `.env.example` dosyasını `.env` olarak kopyalayıp yerel değerleri ayarlayın.
 2. `docker compose -f compose.yaml -f compose.prod.yaml up --build -d` komutunu çalıştırın.
-3. Arayüzler sırasıyla `http://localhost:8081`, `http://localhost:8082` ve `http://localhost:8083` adreslerinde açılır.
+3. Giriş ekranı `http://localhost:8080`, öğrenci arayüzü `http://localhost:8081`, öğretmen/uzman `http://localhost:8082` ve yönetici `http://localhost:8083` adreslerinde açılır.
 
-Üretim benzeri host portları `.env` içindeki `STUDENT_PROD_PORT`, `TEACHER_PROD_PORT` ve `ADMIN_PROD_PORT` ile değiştirilebilir. Giriş sonrası yönlendirme URL'lerini özelleştiriyorsanız `STUDENT_APP_URL`, `TEACHER_APP_URL` ve `ADMIN_APP_URL` değerlerini de aynı adreslerle eşleştirin.
+Üretim benzeri host portları `.env` içindeki `LOGIN_PROD_PORT`, `STUDENT_PROD_PORT`, `TEACHER_PROD_PORT` ve `ADMIN_PROD_PORT` ile değiştirilebilir. Giriş sonrası yönlendirme URL'lerini özelleştiriyorsanız `LOGIN_APP_URL`, `STUDENT_APP_URL`, `TEACHER_APP_URL` ve `ADMIN_APP_URL` değerlerini de aynı adreslerle eşleştirin.
 
-PostgreSQL portu host'a yayımlanmaz ve yalnızca API'nin bağlı olduğu izole `data` ağına eklenir. Web arayüzleri ile API'nin yayımlanmış portları `app` ağı üzerinden erişilebilir; API ayrıca veritabanına ulaşmak için `data` ağına bağlıdır. Servisleri ayrı ayrı yeniden oluşturmak için örneğin `docker compose -f compose.yaml -f compose.dev.yaml up --build api` veya `... up --build student-web` kullanın.
+PostgreSQL portu host'a yayımlanmaz ve yalnızca API'nin bağlı olduğu izole `data` ağına eklenir. Web arayüzleri ile API'nin yayımlanmış portları `app` ağı üzerinden erişilebilir; API ayrıca veritabanına ulaşmak için `data` ağına bağlıdır. Geliştirme override'ı `docker compose up` tarafından otomatik yüklenir. Servisleri ayrı ayrı yeniden oluşturmak için örneğin `docker compose up --build api` veya `docker compose up --build student-web` kullanın.
 
 ## Ortam değişkenleri
 
@@ -71,12 +72,12 @@ PostgreSQL portu host'a yayımlanmaz ve yalnızca API'nin bağlı olduğu izole 
 | `DATABASE_URL` | API'nin PostgreSQL bağlantı adresi |
 | `WEB_ORIGINS` | API'ye istek göndermesine izin verilen arayüz adresleri |
 | `API_PORT` | Geliştirme API host portu (varsayılan `3000`) |
-| `STUDENT_DEV_PORT`, `TEACHER_DEV_PORT`, `ADMIN_DEV_PORT` | Geliştirme arayüz host portları (varsayılan `5173`-`5175`) |
-| `STUDENT_PROD_PORT`, `TEACHER_PROD_PORT`, `ADMIN_PROD_PORT` | Üretim benzeri arayüz host portları (varsayılan `8081`-`8083`) |
-| `STUDENT_APP_URL`, `TEACHER_APP_URL`, `ADMIN_APP_URL` | Giriş sonrası rol bazlı arayüz yönlendirme adresleri |
+| `LOGIN_DEV_PORT`, `STUDENT_DEV_PORT`, `TEACHER_DEV_PORT`, `ADMIN_DEV_PORT` | Geliştirme arayüz host portları (varsayılan `5170`, `5173`-`5175`) |
+| `LOGIN_PROD_PORT`, `STUDENT_PROD_PORT`, `TEACHER_PROD_PORT`, `ADMIN_PROD_PORT` | Üretim benzeri arayüz host portları (varsayılan `8080`-`8083`) |
+| `LOGIN_APP_URL`, `STUDENT_APP_URL`, `TEACHER_APP_URL`, `ADMIN_APP_URL` | Giriş ve rol bazlı arayüz yönlendirme adresleri |
 | `SESSION_COOKIE_DOMAIN` | Farklı alt alan adları kullanılacaksa ortak oturum cookie alan adı; yerelde boş bırakın |
 
-`.env` dosyası sürüm kontrolü dışındadır. Gerçek sırları `.env.example` dosyasına veya kaynak koda eklemeyin.
+`.env` dosyası, örnek dışı yerel `config/` dosyaları ve loglar sürüm kontrolü dışındadır. Gerekli başlangıç şablonu `config/users.example.json` Git'te tutulur; gerçek sırları örnek dosyaya veya kaynak koda eklemeyin.
 
 ## Hesaplar
 
@@ -90,9 +91,9 @@ Henüz bir yönetici hesabı yoksa ilk hesabı güvenli, yerel dosyadan oluştur
 3. Geliştirme servislerini başlatıp `config/users.json` dosyasını yerinde bırakın:
 
    ```bash
-   docker compose -f compose.yaml -f compose.dev.yaml up --build -d
-   docker compose -f compose.yaml -f compose.dev.yaml exec api npm run build --workspace apps/api
-   docker compose -f compose.yaml -f compose.dev.yaml exec api npm run provision:users --workspace apps/api
+   docker compose up --build -d
+   docker compose exec api npm run build --workspace apps/api
+   docker compose exec api npm run provision:users --workspace apps/api
    ```
 
 İlk API başlangıcından sonra dosya `id`, `type`, `username`, `passwordHash`, `createdAt` ve `tutorialCompleted` alanlarını içerir. `config/users.json` sunucuda kalıcı olarak tutulmalı ve yedeklenmelidir; dosyayı silmeyin. Sonraki öğrenci, uzman ve admin hesaplarını admin panelinin **Hesaplar** sekmesinden oluşturup güncelleyebilirsiniz. Hesap değişikliğinde ilgili kullanıcının mevcut oturumları kapatılır.
@@ -111,7 +112,7 @@ Admin panelinin **Hareket kayıtları** sekmesi hesap işlemlerini, giriş/çık
 
 - `apps/student-web`, `apps/teacher-web`, `apps/admin-web`: ayrı React/Vite uygulamaları
 - `apps/api`: NestJS modüler monolit API
-- `compose.yaml`, `compose.dev.yaml`, `compose.prod.yaml`: ortak servisler ve yerel/üretim benzeri ayarlar
+- `compose.yaml`, `compose.override.yaml`, `compose.prod.yaml`: ortak servisler ve yerel/üretim benzeri ayarlar
 - `tasks.md`: proje kapsamı, fazlar ve kabul ölçütleri
 
 Ortak kullanıcı adı/parola giriş ekranı öğrenci uygulamasındadır ve kök adreste açılır. JSON dosyasındaki `type` alanı kullanıcı rolünü belirtir; API bu rolü yetkilendirme ve yönlendirme için kullanır. Ayrı rol seçimi yoktur. Her panelde karşılama mesajı kullanıcının adını gösterir. Başlangıçta senaryo içeriği yoktur; yönetici alanından içerik oluşturup yayımlamak gerekir.

@@ -48,14 +48,20 @@ class ApiRequestError extends Error {
   }
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? `${window.location.protocol}//${window.location.hostname}:3000/api`
-    : '/api');
-const STUDENT_APP_URL =
-  import.meta.env.VITE_STUDENT_APP_URL ||
-  (import.meta.env.DEV ? 'http://localhost:5173' : 'http://localhost:8081');
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_API_BASE_URL || '/api';
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
 
 async function request<T>(
   path: string,
@@ -105,8 +111,17 @@ function TeacherApp() {
   }, []);
 
   useEffect(() => {
-    void request<User>('/auth/me?role=teacher')
+    void request<{ needsSetup: boolean }>('/auth/setup-status')
+      .then((status) => {
+        if (status.needsSetup) {
+          setRedirecting(true);
+          window.location.replace(`${getLoginAppUrl()}/setup`);
+          return null;
+        }
+        return request<User>('/auth/me?role=teacher');
+      })
       .then((currentUser) => {
+        if (!currentUser) return;
         if (currentUser.role === 'teacher') {
           setUser(currentUser);
           if (!currentUser.tutorialCompleted) {
@@ -190,7 +205,7 @@ function TeacherApp() {
     setError('');
     try {
       await request('/auth/logout?role=teacher', {});
-      window.location.assign(STUDENT_APP_URL);
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -207,7 +222,7 @@ function TeacherApp() {
   }
 
   useEffect(() => {
-    if (redirecting) window.location.replace(`${STUDENT_APP_URL}/login`);
+    if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
   }, [redirecting]);
 
   if (loading || redirecting || !user) {
@@ -220,7 +235,7 @@ function TeacherApp() {
         {!loading && !redirecting && error && (
           <button
             className="primary-button"
-            onClick={() => window.location.assign(`${STUDENT_APP_URL}/login`)}
+            onClick={() => window.location.assign(`${getLoginAppUrl()}/login`)}
             type="button"
           >
             Giriş sayfasına dön

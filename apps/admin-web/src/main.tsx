@@ -97,14 +97,20 @@ class ApiRequestError extends Error {
   }
 }
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? `${window.location.protocol}//${window.location.hostname}:3000/api`
-    : '/api');
-const STUDENT_APP_URL =
-  import.meta.env.VITE_STUDENT_APP_URL ||
-  (import.meta.env.DEV ? 'http://localhost:5173' : 'http://localhost:8081');
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_API_BASE_URL || '/api';
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
 
 async function request<T>(
   path: string,
@@ -189,8 +195,17 @@ function AdminApp() {
   }, []);
 
   useEffect(() => {
-    void request<User>('/auth/me?role=admin')
+    void request<{ needsSetup: boolean }>('/auth/setup-status')
+      .then((status) => {
+        if (status.needsSetup) {
+          setRedirecting(true);
+          window.location.replace(`${getLoginAppUrl()}/setup`);
+          return null;
+        }
+        return request<User>('/auth/me?role=admin');
+      })
       .then((currentUser) => {
+        if (!currentUser) return;
         if (currentUser.role === 'admin') {
           setUser(currentUser);
           if (!currentUser.tutorialCompleted) {
@@ -209,7 +224,7 @@ function AdminApp() {
   }, []);
 
   useEffect(() => {
-    if (redirecting) window.location.replace(`${STUDENT_APP_URL}/login`);
+    if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
   }, [redirecting]);
 
   useEffect(() => {
@@ -503,7 +518,7 @@ function AdminApp() {
     setError('');
     try {
       await request('/auth/logout?role=admin', {});
-      window.location.assign(STUDENT_APP_URL);
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -535,7 +550,7 @@ function AdminApp() {
         {error && <p className="error" role="alert">{error}</p>}
         <button
           className="primary-button"
-          onClick={() => window.location.assign(`${STUDENT_APP_URL}/login`)}
+          onClick={() => window.location.assign(`${getLoginAppUrl()}/login`)}
           type="button"
         >
           Giriş sayfasına dön

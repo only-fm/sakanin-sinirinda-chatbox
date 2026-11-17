@@ -145,6 +145,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       CREATE INDEX IF NOT EXISTS expert_questions_created_at_idx
         ON expert_questions(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS problem_reports (
+        id UUID PRIMARY KEY,
+        reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reporter_role TEXT NOT NULL CHECK (reporter_role IN ('student', 'teacher')),
+        screen TEXT NOT NULL,
+        description TEXT NOT NULL,
+        context JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+        resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        resolved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS problem_reports_created_at_idx
+        ON problem_reports(created_at DESC);
     `);
   }
 

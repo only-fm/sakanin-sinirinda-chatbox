@@ -1352,3 +1352,67 @@ td {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   SORUN BÝLDÝRÝMLERÝ SEKMESÝ
+   ========================================================================== */
+
+.report-status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.report-status-tag.open {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+.report-status-tag.resolved {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+
+.report-context {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.report-context summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.report-context dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.report-context dt {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.report-context dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+}

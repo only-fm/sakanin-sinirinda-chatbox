@@ -36,6 +36,8 @@ export interface ScenarioSummary {
   createdAt: string;
   publishedAt: string | null;
   hasResponse?: boolean;
+  /** Bu senaryoyu inceleyip yanıt kaydeden öğrenci sayısı (öğrenci listesi için). */
+  responseCount?: number;
 }
 
 export interface ScenarioDetail extends Scenario {

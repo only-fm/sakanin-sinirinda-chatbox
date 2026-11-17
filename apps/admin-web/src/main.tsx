@@ -84,6 +84,19 @@ type StudentResponse = {
   updatedAt: string;
 };
 
+type ProblemReport = {
+  id: string;
+  reporterUsername: string;
+  reporterRole: 'student' | 'teacher';
+  screen: string;
+  description: string;
+  context: Record<string, string | number | boolean>;
+  status: 'open' | 'resolved';
+  resolvedByUsername: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+};
+
 type ApiFailure = {
   message?: string | string[];
 };
@@ -136,6 +149,15 @@ async function request<T>(
   return payload;
 }
 
+// crypto.randomUUID yalnızca güvenli bağlamda (HTTPS / localhost) tanımlıdır.
+// Uygulama başka bir cihazdan düz HTTP ile açıldığında çökmemesi için yedek üreteç kullanılır.
+function createId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function emptyContent(): ScenarioContent {
   return {
     title: '',
@@ -143,21 +165,23 @@ function emptyContent(): ScenarioContent {
     context: '',
     videoUrl: '',
     perspectives: [
-      { id: crypto.randomUUID(), label: '', text: '' },
-      { id: crypto.randomUUID(), label: '', text: '' },
+      { id: createId(), label: '', text: '' },
+      { id: createId(), label: '', text: '' },
     ],
-    reflectionQuestions: [{ id: crypto.randomUUID(), text: '' }],
+    reflectionQuestions: [{ id: createId(), text: '' }],
   };
 }
 
 function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'accounts' | 'content' | 'logs' | 'questions' | 'responses'>('content');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'content' | 'logs' | 'questions' | 'reports' | 'responses'>('content');
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [expertQuestions, setExpertQuestions] = useState<ExpertQuestion[]>([]);
   const [studentResponses, setStudentResponses] = useState<StudentResponse[]>([]);
+  const [problemReports, setProblemReports] = useState<ProblemReport[]>([]);
+  const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'open' | 'resolved'>('open');
   const [auditUserId, setAuditUserId] = useState('');
   const [auditHasMore, setAuditHasMore] = useState(false);
   const [auditOffset, setAuditOffset] = useState(0);
@@ -234,6 +258,7 @@ function AdminApp() {
       void refreshAuditLogs();
       void refreshExpertQuestions();
       void refreshStudentResponses();
+      void refreshProblemReports();
     }
   }, [user]);
 
@@ -244,6 +269,10 @@ function AdminApp() {
   useEffect(() => {
     if (user && activeTab === 'logs') void refreshAuditLogs();
   }, [user, activeTab, auditUserId]);
+
+  useEffect(() => {
+    if (user && activeTab === 'reports') void refreshProblemReports();
+  }, [user, activeTab, reportStatusFilter]);
 
   async function refreshScenarios() {
     try {
@@ -291,6 +320,36 @@ function AdminApp() {
       if (responseScenarioId) filters.set('scenarioId', responseScenarioId);
       const query = filters.size ? `?${filters.toString()}` : '';
       setStudentResponses(await request<StudentResponse[]>(`/scenarios/admin/responses${query}`));
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+    }
+  }
+
+  async function refreshProblemReports() {
+    try {
+      const query = reportStatusFilter === 'all' ? '' : `?status=${reportStatusFilter}`;
+      setProblemReports(await request<ProblemReport[]>(`/problem-reports${query}`));
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+    }
+  }
+
+  async function resolveProblemReport(report: ProblemReport) {
+    setError('');
+    setMessage('');
+    try {
+      const updated = await request<ProblemReport>(
+        `/problem-reports/${report.id}/resolve`,
+        {},
+        'PATCH',
+      );
+      setProblemReports((current) =>
+        reportStatusFilter === 'all'
+          ? current.map((entry) => (entry.id === updated.id ? updated : entry))
+          : current.filter((entry) => entry.id !== updated.id),
+      );
+      setMessage('Bildirim çözüldü olarak işaretlendi.');
+      await refreshAuditLogs();
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -566,6 +625,7 @@ function AdminApp() {
     { title: 'Senaryolar', text: 'Taslak hazırla, video URL’si ekle veya sunucuya video yükle; yayımla ya da yayımlanmış senaryoyu tamamen sil.' },
     { title: 'Öğrenci değerlendirmeleri', text: 'Şaka/zorbalık seçimini, gerekçeyi ve her soruya verilen yanıtı kullanıcı ya da senaryoya göre inceleyebilirsin.' },
     { title: 'Uzman soruları', text: 'Öğrencilerin uzmana ilettiği soruları bu bölümden inceleyebilirsin.' },
+    { title: 'Sorun bildirimleri', text: 'Öğrenci ve uzmanların ilettiği sistem sorunlarını burada görüntüleyip çözüldü olarak işaretleyebilirsin.' },
     { title: 'Hareket kayıtları', text: 'Kullanıcıların işlem geçmişine bu bölümden ulaşırsın.' },
     { title: 'Çıkış', text: 'Oturum kapatma düğmesi menünün alt kısmında.' },
   ];
@@ -612,6 +672,24 @@ function AdminApp() {
             type="button"
           >
             <span aria-hidden="true">✉</span> Uzman soruları
+          </button>
+          <button
+            aria-current={activeTab === 'reports' ? 'page' : undefined}
+            className={activeTab === 'reports' ? 'admin-tab active' : 'admin-tab'}
+            id="nav-reports"
+            onClick={() => {
+              setActiveTab('reports');
+              setError('');
+              setMessage('');
+              setSidebarOpen(false);
+              void refreshProblemReports();
+            }}
+            type="button"
+          >
+            <span aria-hidden="true">⚠</span> Sorun bildirimleri
+            {problemReports.some((report) => report.status === 'open') && (
+              <span className="sidebar-count" aria-label="Açık sorun bildirimi">!</span>
+            )}
           </button>
           <button
             aria-current={activeTab === 'logs' ? 'page' : undefined}
@@ -951,7 +1029,7 @@ function AdminApp() {
                   ...form,
                   perspectives: [
                     ...form.perspectives,
-                    { id: crypto.randomUUID(), label: '', text: '' },
+                    { id: createId(), label: '', text: '' },
                   ],
                 })}
                 type="button"
@@ -999,7 +1077,7 @@ function AdminApp() {
                   ...form,
                   reflectionQuestions: [
                     ...form.reflectionQuestions,
-                    { id: crypto.randomUUID(), text: '' },
+                    { id: createId(), text: '' },
                   ],
                 })}
                 type="button"
@@ -1128,7 +1206,7 @@ function AdminApp() {
                         : 'Bilinmeyen kullanıcı'}
                     </td>
                     <td>{auditActionLabel(entry.action)}</td>
-                    <td>{entry.entityType === 'scenario' ? 'Senaryo' : entry.entityType === 'user' ? 'Hesap' : 'Oturum'}</td>
+                    <td>{auditEntityLabel(entry.entityType)}</td>
                     <td>{auditDetails(entry)}</td>
                   </tr>
                 ))}
@@ -1178,6 +1256,94 @@ function AdminApp() {
             ))}
             {expertQuestions.length === 0 && (
               <p className="muted">Henüz öğrenci sorusu yok.</p>
+            )}
+          </div>
+        </section>
+      )}
+      {activeTab === 'reports' && (
+        <section className="management-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">SİSTEM SORUNLARI</p>
+              <h2>Sorun bildirimleri</h2>
+              <p className="muted">
+                Öğrenci ve uzmanların “Sorun mu var?” düğmesiyle ilettiği hata ve aksaklıklar.
+                Ekran, tarayıcı ve son API hatası bildirimle birlikte otomatik gelir.
+              </p>
+            </div>
+            <button className="secondary-button" onClick={() => void refreshProblemReports()} type="button">
+              Yenile
+            </button>
+          </div>
+          <label className="audit-user-filter">
+            Duruma göre filtrele
+            <select
+              onChange={(event) =>
+                setReportStatusFilter(
+                  event.target.value === 'resolved'
+                    ? 'resolved'
+                    : event.target.value === 'all' ? 'all' : 'open',
+                )}
+              value={reportStatusFilter}
+            >
+              <option value="open">Açık bildirimler</option>
+              <option value="resolved">Çözülenler</option>
+              <option value="all">Tümü</option>
+            </select>
+          </label>
+          <div className="admin-question-list">
+            {problemReports.map((report) => (
+              <article className="admin-question-card" key={report.id}>
+                <div className="admin-question-meta">
+                  <strong>{report.reporterUsername}</strong>
+                  <span>{roleLabel(report.reporterRole)} · {report.screen}</span>
+                  <time dateTime={report.createdAt}>{formatDate(report.createdAt)}</time>
+                  <span className={report.status === 'open' ? 'report-status-tag open' : 'report-status-tag resolved'}>
+                    {report.status === 'open' ? 'Açık' : 'Çözüldü'}
+                  </span>
+                </div>
+                <p>{report.description}</p>
+                {Object.keys(report.context).length > 0 && (
+                  <details className="report-context">
+                    <summary>Teknik bilgiler</summary>
+                    <dl>
+                      {Object.entries(report.context).map(([key, value]) => (
+                        <div key={key}>
+                          <dt>{key}</dt>
+                          <dd>{String(value)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </details>
+                )}
+                {report.status === 'open' ? (
+                  <div className="report-actions">
+                    <button
+                      className="secondary-button"
+                      onClick={() => void resolveProblemReport(report)}
+                      type="button"
+                    >
+                      Çözüldü olarak işaretle
+                    </button>
+                  </div>
+                ) : (
+                  <span className="muted">
+                    {report.resolvedByUsername
+                      ? `${report.resolvedByUsername} çözüldü olarak işaretledi · `
+                      : ''}
+                    {report.resolvedAt ? formatDate(report.resolvedAt) : ''}
+                  </span>
+                )}
+              </article>
+            ))}
+            {problemReports.length === 0 && (
+              <p className="muted">
+                {reportStatusFilter === 'open'
+                  ? 'Açık sorun bildirimi yok.'
+                  : reportStatusFilter === 'resolved'
+                    ? 'Çözülen bildirim yok.'
+                    : 'Henüz sorun bildirimi yok.'}
+              </p>
             )}
           </div>
         </section>
@@ -1267,6 +1433,7 @@ function AdminTutorial(props: {
     'new-scenario',
     'nav-responses',
     'nav-questions',
+    'nav-reports',
     'nav-logs',
     'sidebar-logout',
   ];
@@ -1330,6 +1497,17 @@ function AdminTutorial(props: {
   );
 }
 
+function auditEntityLabel(entityType: string): string {
+  const labels: Record<string, string> = {
+    scenario: 'Senaryo',
+    user: 'Hesap',
+    auth: 'Oturum',
+    expert_question: 'Uzman sorusu',
+    problem_report: 'Sorun bildirimi',
+  };
+  return labels[entityType] ?? entityType;
+}
+
 function auditActionLabel(action: string): string {
   const labels: Record<string, string> = {
     'account.provisioned': 'Hesap sisteme aktarıldı',
@@ -1348,6 +1526,8 @@ function auditActionLabel(action: string): string {
     'content.video.uploaded': 'Video yüklendi',
     'student.scenario.viewed': 'Senaryo görüntülendi',
     'student.response.saved': 'Yanıt kaydedildi',
+    'problem_report.created': 'Sorun bildirimi alındı',
+    'problem_report.resolved': 'Sorun bildirimi çözüldü',
   };
   return labels[action] ?? action;
 }

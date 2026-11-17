@@ -38,6 +38,7 @@ interface ScenarioRow {
   video_path: string | null;
   answers?: Record<string, string>;
   has_response?: boolean;
+  response_count?: number;
   classification?: 'joke' | 'bullying' | null;
   reasoning?: string | null;
 }
@@ -394,7 +395,12 @@ export class ScenarioService implements OnModuleInit {
                 SELECT 1 FROM student_scenario_responses r
                 WHERE r.scenario_id = s.id AND r.student_id = $1
                   AND (r.answers <> '{}'::jsonb OR r.classification IS NOT NULL)
-              ) AS has_response
+              ) AS has_response,
+              (
+                SELECT COUNT(*) FROM student_scenario_responses r2
+                WHERE r2.scenario_id = s.id
+                  AND (r2.answers <> '{}'::jsonb OR r2.classification IS NOT NULL)
+              ) AS response_count
        FROM scenarios s
        WHERE s.status = 'published'
        ORDER BY s.published_at DESC`,
@@ -659,6 +665,9 @@ export class ScenarioService implements OnModuleInit {
       createdAt: row.created_at.toISOString(),
       publishedAt: row.published_at?.toISOString() ?? null,
       ...(row.has_response === undefined ? {} : { hasResponse: row.has_response }),
+      ...(row.response_count === undefined
+        ? {}
+        : { responseCount: Number(row.response_count) }),
     };
   }
 

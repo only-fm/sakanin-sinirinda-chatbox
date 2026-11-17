@@ -79,10 +79,18 @@ async function request<T>(
     const message = Array.isArray(payload.message)
       ? payload.message.join(' ')
       : payload.message;
+    lastApiError = {
+      status: response.status,
+      message: message || `İstek başarısız oldu (${response.status}).`,
+      at: new Date().toISOString(),
+    };
     throw new ApiRequestError(message || `İstek başarısız oldu (${response.status}).`, response.status);
   }
   return payload;
 }
+
+// Rapor penceresinin otomatik ekleyeceği son API hatası (10 dakika içindekiler).
+let lastApiError: { status: number; message: string; at: string } | null = null;
 
 function TeacherApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -99,6 +107,10 @@ function TeacherApp() {
   const [savingAnswer, setSavingAnswer] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   useEffect(() => {
     const viewport = window.matchMedia('(max-width: 760px)');
@@ -224,6 +236,30 @@ function TeacherApp() {
   useEffect(() => {
     if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
   }, [redirecting]);
+
+  function currentScreenLabel(): string {
+    return activeTab === 'questions' ? 'Öğrenci soruları' : 'Senaryo inceleme';
+  }
+
+  async function submitProblemReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReportSending(true);
+    setReportError('');
+    try {
+      await request('/problem-reports', {
+        description: reportDescription,
+        screen: currentScreenLabel(),
+        context: problemReportContext(),
+      });
+      setReportOpen(false);
+      setReportDescription('');
+      setMessage('Sorun bildirimin yöneticiye iletildi. Teşekkürler!');
+    } catch (cause: unknown) {
+      setReportError(errorMessage(cause));
+    } finally {
+      setReportSending(false);
+    }
+  }
 
   if (loading || redirecting || !user) {
     return (
@@ -485,6 +521,60 @@ function TeacherApp() {
           </div>
         )}
       </section>
+      <button
+        className="problem-fab"
+        id="problem-fab"
+        onClick={() => { setReportOpen(true); setReportError(''); }}
+        type="button"
+      >
+        <span className="problem-fab-icon" aria-hidden="true">!</span>
+        Sorun mu var?
+      </button>
+      {reportOpen && (
+        <div className="problem-modal-backdrop" onClick={() => setReportOpen(false)}>
+          <div
+            aria-labelledby="problem-modal-title"
+            aria-modal="true"
+            className="problem-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="problem-modal-header">
+              <span className="problem-modal-icon" aria-hidden="true">⚠️</span>
+              <div>
+                <h2 id="problem-modal-title">Sorun mu var?</h2>
+                <p>Bir hata, takılan ekran ya da beklenmeyen davranış gördüysen bize bildir.</p>
+              </div>
+            </div>
+            <form onSubmit={(event) => void submitProblemReport(event)}>
+              <label htmlFor="problem-description">Ne oldu?</label>
+              <textarea
+                id="problem-description"
+                maxLength={2000}
+                minLength={3}
+                onChange={(event) => setReportDescription(event.target.value)}
+                placeholder="Örn: Bir öğrencinin sorusu listede görünmüyor…"
+                required
+                rows={5}
+                value={reportDescription}
+              />
+              <p className="hint">
+                Ekran, tarayıcı bilgileri ve son hata (varsa) bildirimle birlikte otomatik iletilir.
+                Bildirimi yalnızca yöneticiler görebilir.
+              </p>
+              <div className="problem-modal-actions">
+                <button className="text-button" onClick={() => setReportOpen(false)} type="button">
+                  Vazgeç
+                </button>
+                <button className="primary-button" disabled={reportSending} type="submit">
+                  {reportSending ? 'Gönderiliyor…' : 'Sorunu bildir'}
+                </button>
+              </div>
+              {reportError && <p className="error" role="alert">{reportError}</p>}
+            </form>
+          </div>
+        </div>
+      )}
       {tutorialStep !== null && (
         <TeacherTutorial
           step={tutorialStep}
@@ -498,6 +588,20 @@ function TeacherApp() {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.';
+}
+
+function problemReportContext(): Record<string, string> {
+  const context: Record<string, string> = {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+  };
+  const recent = lastApiError
+    && Date.now() - new Date(lastApiError.at).getTime() < 10 * 60 * 1000
+    ? lastApiError
+    : null;
+  if (recent) context.lastApiError = `${recent.status}: ${recent.message}`;
+  return context;
 }
 
 function apiResourceUrl(value: string): string {

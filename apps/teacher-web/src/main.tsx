@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PressableButton } from './PressableButton';
 import './style.css';
 
 type User = {
@@ -295,25 +296,29 @@ function TeacherApp() {
         </div>
         <p className="sidebar-section-label">MENÜ</p>
         <nav className="sidebar-nav" aria-label="Uzman menüsü">
-          <button
+          <PressableButton
             aria-current={activeTab === 'questions' ? 'page' : undefined}
             className={activeTab === 'questions' ? 'sidebar-link active' : 'sidebar-link'}
+            hoverScale={0.99}
             id="nav-questions"
             onClick={() => { setActiveTab('questions'); setError(''); setMessage(''); setSidebarOpen(false); }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">✉</span> Öğrenci soruları
             {pendingCount > 0 && <span className="sidebar-count">{pendingCount}</span>}
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'scenarios' ? 'page' : undefined}
             className={activeTab === 'scenarios' ? 'sidebar-link active' : 'sidebar-link'}
+            hoverScale={0.99}
             id="nav-scenarios"
             onClick={() => { setActiveTab('scenarios'); setError(''); setMessage(''); setSidebarOpen(false); }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">▤</span> Senaryo inceleme
-          </button>
+          </PressableButton>
         </nav>
         <div className="sidebar-user">
           <span className="sidebar-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
@@ -327,15 +332,17 @@ function TeacherApp() {
       <section className="teacher-workspace">
         <header className="workspace-header">
           <div>
-            <button
+            <PressableButton
               aria-expanded={sidebarOpen}
               aria-label={sidebarOpen ? 'Menüyü kapat' : 'Menüyü aç'}
               className="mobile-menu-button"
+              hoverScale={0.94}
               onClick={() => setSidebarOpen((open) => !open)}
+              pressScale={0.88}
               type="button"
             >
               ☰
-            </button>
+            </PressableButton>
             <h1>Merhaba, {user.username}</h1>
           </div>
           <button
@@ -521,7 +528,7 @@ function TeacherApp() {
           </div>
         )}
       </section>
-      <button
+      <PressableButton
         className="problem-fab"
         id="problem-fab"
         onClick={() => { setReportOpen(true); setReportError(''); }}
@@ -529,7 +536,7 @@ function TeacherApp() {
       >
         <span className="problem-fab-icon" aria-hidden="true">!</span>
         Sorun mu var?
-      </button>
+      </PressableButton>
       {reportOpen && (
         <div className="problem-modal-backdrop" onClick={() => setReportOpen(false)}>
           <div

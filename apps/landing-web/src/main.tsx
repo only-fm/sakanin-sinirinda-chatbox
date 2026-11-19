@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PressableButton } from './PressableButton';
 import './style.css';
 
 const LOGIN_URL =
@@ -117,9 +118,9 @@ function LandingApp() {
           <a href="#degerler">İlkelerimiz</a>
         </nav>
         <div className="nav-actions">
-          <button className="nav-login-btn" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+          <PressableButton className="nav-login-btn" disabled={!sessionChecked} hoverScale={0.97} onClick={handleLoginClick} pressScale={0.94} type="button">
             {!sessionChecked ? 'Kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Aç →'}
-          </button>
+          </PressableButton>
         </div>
       </header>
 
@@ -140,10 +141,10 @@ function LandingApp() {
         </p>
 
         <div className="hero-cta-group">
-          <button className="primary-cta-btn" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+          <PressableButton className="primary-cta-btn" disabled={!sessionChecked} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
             <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Platforma Giriş Yap'}</span>
             <span className="btn-icon">🚀</span>
-          </button>
+          </PressableButton>
           <a className="secondary-cta-btn" href="#farklar">
             Farkları İncele ↓
           </a>
@@ -272,10 +273,10 @@ function LandingApp() {
           <span className="cta-sparkle" aria-hidden="true">✨</span>
           <h2>Farkındalık Yolculuğuna Başlamaya Hazır mısın?</h2>
           <p>Öğrenci, öğretmen veya yönetici hesabınla hemen oturum aç ve keşfetmeye başla.</p>
-          <button className="primary-cta-btn pulse-glow" disabled={!sessionChecked} onClick={handleLoginClick} type="button">
+          <PressableButton className="primary-cta-btn pulse-glow" disabled={!sessionChecked} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
             <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Açma Sayfasına Git'}</span>
             <span className="btn-icon">→</span>
-          </button>
+          </PressableButton>
           {sessionCheckError && (
             <p role="status">Oturum kontrol edilemedi; devam etmek için giriş sayfasına yönlendirileceksiniz.</p>
           )}

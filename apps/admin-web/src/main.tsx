@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PressableButton } from './PressableButton';
 import './style.css';
 
 type User = {
@@ -640,27 +641,32 @@ function AdminApp() {
         </div>
         <p className="sidebar-section-label">MENÜ</p>
         <nav className="admin-tabs" aria-label="Yönetim menüsü">
-          <button
+          <PressableButton
             aria-current={activeTab === 'content' ? 'page' : undefined}
             className={activeTab === 'content' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-content"
             onClick={() => { setActiveTab('content'); setError(''); setMessage(''); setSidebarOpen(false); }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">▤</span> Öğrenci içerikleri
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'accounts' ? 'page' : undefined}
             className={activeTab === 'accounts' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-accounts"
             onClick={() => { setActiveTab('accounts'); setError(''); setMessage(''); setSidebarOpen(false); }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">♙</span> Hesaplar
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'questions' ? 'page' : undefined}
             className={activeTab === 'questions' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-questions"
             onClick={() => {
               setActiveTab('questions');
@@ -669,13 +675,15 @@ function AdminApp() {
               setSidebarOpen(false);
               void refreshExpertQuestions();
             }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">✉</span> Uzman soruları
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'reports' ? 'page' : undefined}
             className={activeTab === 'reports' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-reports"
             onClick={() => {
               setActiveTab('reports');
@@ -684,16 +692,18 @@ function AdminApp() {
               setSidebarOpen(false);
               void refreshProblemReports();
             }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">⚠</span> Sorun bildirimleri
             {problemReports.some((report) => report.status === 'open') && (
               <span className="sidebar-count" aria-label="Açık sorun bildirimi">!</span>
             )}
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'logs' ? 'page' : undefined}
             className={activeTab === 'logs' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-logs"
             onClick={() => {
               setActiveTab('logs');
@@ -702,19 +712,22 @@ function AdminApp() {
               setSidebarOpen(false);
               void refreshAuditLogs();
             }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">◷</span> Hareket kayıtları
-          </button>
-          <button
+          </PressableButton>
+          <PressableButton
             aria-current={activeTab === 'responses' ? 'page' : undefined}
             className={activeTab === 'responses' ? 'admin-tab active' : 'admin-tab'}
+            hoverScale={0.99}
             id="nav-responses"
             onClick={() => { setActiveTab('responses'); setError(''); setMessage(''); setSidebarOpen(false); }}
+            pressScale={0.97}
             type="button"
           >
             <span aria-hidden="true">▦</span> Öğrenci değerlendirmeleri
-          </button>
+          </PressableButton>
         </nav>
         <div className="sidebar-user">
           <span className="sidebar-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
@@ -725,15 +738,17 @@ function AdminApp() {
       <div className="admin-main">
         <header className="topbar">
           <div>
-            <button
+            <PressableButton
               aria-expanded={sidebarOpen}
               aria-label={sidebarOpen ? 'Menüyü kapat' : 'Menüyü aç'}
               className="mobile-menu-button"
+              hoverScale={0.94}
               onClick={() => setSidebarOpen((open) => !open)}
+              pressScale={0.88}
               type="button"
             >
               ☰
-            </button>
+            </PressableButton>
             <h1>Merhaba, {user.username}</h1>
           </div>
         </header>

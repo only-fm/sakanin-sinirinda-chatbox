@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PressableButton } from './PressableButton';
 import './style.css';
 
 type User = {
@@ -583,27 +584,31 @@ function StudentApp() {
           </div>
           <p className="sidebar-section-label">MENÜ</p>
           <nav className="sidebar-nav" aria-label="Öğrenci menüsü">
-            <button
+            <PressableButton
               aria-current={activePage === 'scenarios' ? 'page' : undefined}
               className={activePage === 'scenarios' ? 'sidebar-link active' : 'sidebar-link'}
+              hoverScale={0.99}
               id="nav-scenarios"
               onClick={() => { setActivePage('scenarios'); setError(''); setMessage(''); setSidebarOpen(false); }}
+              pressScale={0.97}
               type="button"
             >
               <span aria-hidden="true">▤</span> Senaryolar
-            </button>
-            <button
+            </PressableButton>
+            <PressableButton
               aria-current={activePage === 'expert' ? 'page' : undefined}
               className={activePage === 'expert' ? 'sidebar-link active' : 'sidebar-link'}
+              hoverScale={0.99}
               id="nav-expert"
               onClick={() => { setActivePage('expert'); setActiveScenario(null); setError(''); setMessage(''); setSidebarOpen(false); }}
+              pressScale={0.97}
               type="button"
             >
               <span aria-hidden="true">✉</span> Uzmana Sor
               {questions.some((question) => question.answer) && (
                 <span className="sidebar-badge" aria-label="Yanıt geldi">•</span>
               )}
-            </button>
+            </PressableButton>
           </nav>
           <div className="sidebar-user">
             <span className="sidebar-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
@@ -617,15 +622,17 @@ function StudentApp() {
         <div className="student-workspace">
           <header className="student-header">
             <div className="header-title-group">
-              <button
+              <PressableButton
                 aria-expanded={sidebarOpen}
                 aria-label={sidebarOpen ? 'Menüyü kapat' : 'Menüyü aç'}
                 className="mobile-menu-button"
+                hoverScale={0.94}
                 onClick={() => setSidebarOpen((open) => !open)}
+                pressScale={0.88}
                 type="button"
               >
                 ☰
-              </button>
+              </PressableButton>
               <div className="header-greeting-wrap">
                 <h1>
                   Merhaba, {user.username} <span className="wave-emoji" aria-hidden="true">👋</span>
@@ -711,12 +718,12 @@ function StudentApp() {
             <p role="status">Senaryo yükleniyor…</p>
           ) : activeScenario ? (
             <>
-              <button className="text-button back-button" onClick={() => setActiveScenario(null)} type="button">
+              <PressableButton className="text-button back-button" onClick={() => setActiveScenario(null)} type="button">
                 ← Senaryolara dön
-              </button>
+              </PressableButton>
               <div className="scenario-detail-heading">
                 <span className="scenario-status-pill">YAYINDA</span>
-                <button
+                <PressableButton
                   className="secondary-button ask-expert-button"
                   onClick={() => {
                     setQuestionScenarioId(activeScenario.id);
@@ -727,7 +734,7 @@ function StudentApp() {
                   type="button"
                 >
                   ✉ Uzmana Sor
-                </button>
+                </PressableButton>
               </div>
               <section className="content-section">
                 <h2>Senaryo</h2>
@@ -921,7 +928,7 @@ function StudentApp() {
           {message && <p className="success" role="status">{message}</p>}
           {error && <p className="error" role="alert">{error}</p>}
         </div>
-        <button
+        <PressableButton
           className="problem-fab"
           id="problem-fab"
           onClick={() => { setReportOpen(true); setReportError(''); }}
@@ -929,7 +936,7 @@ function StudentApp() {
         >
           <span className="problem-fab-icon" aria-hidden="true">!</span>
           Sorun mu var?
-        </button>
+        </PressableButton>
         {reportOpen && (
           <div className="problem-modal-backdrop" onClick={() => setReportOpen(false)}>
             <div
@@ -988,20 +995,22 @@ function StudentApp() {
               onClick={(event) => event.stopPropagation()}
               role="dialog"
             >
-              <button
+              <PressableButton
                 aria-label="Pencereyi kapat"
                 className="celebration-close"
+                hoverScale={0.9}
                 onClick={() => setShowSaveSuccess(false)}
+                pressScale={0.84}
                 type="button"
               >
                 ×
-              </button>
+              </PressableButton>
               <span className="celebration-icon" aria-hidden="true">🎉</span>
               <h2 id="save-success-title">Harika! Değerlendirmen kaydedildi.</h2>
               <p>Bu senaryoyu inceleyip düşüncelerini paylaştın.</p>
               <div className="celebration-actions">
                 {nextPendingScenario && (
-                  <button
+                  <PressableButton
                     className="primary-button celebration-next-button"
                     onClick={() => {
                       setShowSaveSuccess(false);
@@ -1010,7 +1019,7 @@ function StudentApp() {
                     type="button"
                   >
                     ➜ Sonraki senaryo
-                  </button>
+                  </PressableButton>
                 )}
                 <button
                   className="secondary-button"

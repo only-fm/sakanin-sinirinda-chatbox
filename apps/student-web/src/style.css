@@ -195,32 +195,17 @@ body {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 3.4rem;
   height: 3.4rem;
   margin: 0;
-  border-radius: var(--radius-md);
-  background: var(--primary-gradient);
-  color: #ffffff;
-  font-size: 1.35rem;
-  font-weight: 800;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  object-fit: cover;
+  border-radius: 50%;
   transition: transform 0.3s ease;
 }
 
 .brand-mark:hover {
   transform: rotate(-6deg) scale(1.05);
-}
-
-.brand-sparkle {
-  font-size: 1.6rem;
-  animation: sparkleRotate 3s infinite linear;
-}
-
-@keyframes sparkleRotate {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.2); }
 }
 
 .aside-kicker {
@@ -438,16 +423,11 @@ body {
 }
 
 .sidebar-brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 2.6rem;
   height: 2.6rem;
-  border-radius: var(--radius-md);
-  background: var(--primary-gradient);
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 1.05rem;
-  box-shadow: 0 4px 12px var(--primary-glow);
+  object-fit: cover;
+  border-radius: 50%;
   transition: transform 0.2s ease;
 }
 
@@ -1823,4 +1803,108 @@ button {
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.25rem;
+}
+
+/* ==========================================================================
+   YANIT KAYDEDİLDİ BİLDİRİM PENCERESİ (SAVE SUCCESS POPUP)
+   ========================================================================== */
+
+.celebration-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.celebration-modal {
+  position: relative;
+  width: min(100%, 27rem);
+  max-height: calc(100vh - 2.5rem);
+  overflow-y: auto;
+  padding: 2.25rem 1.75rem 1.75rem;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  color: var(--text-main);
+  text-align: center;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.5);
+  animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.celebration-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.85rem;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.celebration-close:hover {
+  background: var(--bg-app);
+  color: var(--text-main);
+}
+
+.celebration-icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dcfce7 0%, #ede9fe 100%);
+  font-size: 2rem;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+}
+
+.celebration-modal h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.celebration-modal p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.celebration-actions {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.celebration-actions button {
+  width: 100%;
+}
+
+.celebration-next-button {
+  background: linear-gradient(135deg, #059669 0%, #10b981 55%, #06b6d4 100%);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16), 0 10px 24px rgba(16, 185, 129, 0.35);
+  animation: nextScenarioGlow 2s ease-in-out infinite;
+}
+
+.celebration-next-button:hover:not(:disabled) {
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.22), 0 12px 28px rgba(16, 185, 129, 0.4);
+}
+
+@keyframes nextScenarioGlow {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16), 0 10px 24px rgba(16, 185, 129, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0.28), 0 12px 28px rgba(16, 185, 129, 0.45); }
+}
+
+.celebration-hint {
+  margin-top: 0.9rem !important;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--accent-emerald) !important;
 }

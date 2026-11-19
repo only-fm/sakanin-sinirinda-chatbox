@@ -159,6 +159,7 @@ function StudentApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [seenScenarioIds, setSeenScenarioIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem('sakanin_seen_scenarios');
@@ -248,6 +249,15 @@ function StudentApp() {
   }, []);
 
   useEffect(() => {
+    if (!showSaveSuccess) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowSaveSuccess(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showSaveSuccess]);
+
+  useEffect(() => {
     if (!user) return;
     void request<ScenarioSummary[]>('/scenarios')
       .then(setScenarios)
@@ -332,6 +342,7 @@ function StudentApp() {
     setMessage('');
     setActiveScenario(null);
     setScenarioLoading(true);
+    window.scrollTo({ top: 0 });
     if (!seenScenarioIds.includes(id)) {
       const next = [...seenScenarioIds, id];
       setSeenScenarioIds(next);
@@ -396,7 +407,7 @@ function StudentApp() {
       );
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 4500);
-      setMessage('🎉 Harika! Değerlendirmen kaydedildi. Yansıtıcı düşüncelerin güvenle saklandı.');
+      setShowSaveSuccess(true);
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     } finally {
@@ -545,6 +556,21 @@ function StudentApp() {
     return false;
   }
 
+  function findNextPendingScenario(): ScenarioSummary | null {
+    if (!activeScenario || scenarios.length === 0) return null;
+    const isPending = (scenario: ScenarioSummary) =>
+      scenario.id !== activeScenario.id
+      && (!scenario.hasResponse || !seenScenarioIds.includes(scenario.id));
+    const currentIndex = scenarios.findIndex((scenario) => scenario.id === activeScenario.id);
+    for (let offset = 1; offset <= scenarios.length; offset += 1) {
+      const candidate = scenarios[(currentIndex + offset) % scenarios.length];
+      if (candidate && isPending(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  const nextPendingScenario = findNextPendingScenario();
+
   if (user) {
     return (
       <main className={`student-shell${sidebarOpen ? ' sidebar-open' : ''}`}>
@@ -552,7 +578,7 @@ function StudentApp() {
         {sidebarOpen && <button className="sidebar-backdrop" aria-label="Menüyü kapat" onClick={() => setSidebarOpen(false)} type="button" />}
         <aside className="student-sidebar">
           <div className="sidebar-brand">
-            <span className="sidebar-brand-mark">ŞS</span>
+            <img className="sidebar-brand-mark" src="/icon.png" alt="" aria-hidden="true" />
             <span>Şakanın<br />Sınırında</span>
           </div>
           <p className="sidebar-section-label">MENÜ</p>
@@ -949,6 +975,65 @@ function StudentApp() {
             </div>
           </div>
         )}
+        {showSaveSuccess && (
+          <div
+            className="celebration-modal-backdrop"
+            onClick={() => setShowSaveSuccess(false)}
+            role="presentation"
+          >
+            <div
+              aria-labelledby="save-success-title"
+              aria-modal="true"
+              className="celebration-modal"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <button
+                aria-label="Pencereyi kapat"
+                className="celebration-close"
+                onClick={() => setShowSaveSuccess(false)}
+                type="button"
+              >
+                ×
+              </button>
+              <span className="celebration-icon" aria-hidden="true">🎉</span>
+              <h2 id="save-success-title">Harika! Değerlendirmen kaydedildi.</h2>
+              <p>Bu senaryoyu inceleyip düşüncelerini paylaştın.</p>
+              <div className="celebration-actions">
+                {nextPendingScenario && (
+                  <button
+                    className="primary-button celebration-next-button"
+                    onClick={() => {
+                      setShowSaveSuccess(false);
+                      void openScenario(nextPendingScenario.id);
+                    }}
+                    type="button"
+                  >
+                    ➜ Sonraki senaryo
+                  </button>
+                )}
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    setShowSaveSuccess(false);
+                    setActivePage('scenarios');
+                    setActiveScenario(null);
+                    setError('');
+                    setMessage('');
+                    setSidebarOpen(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  type="button"
+                >
+                  Anasayfaya dön
+                </button>
+              </div>
+              {nextPendingScenario && (
+                <p className="celebration-hint">İncelemediğin senaryolar var.</p>
+              )}
+            </div>
+          </div>
+        )}
         {tutorialStep !== null && (
           <StudentTutorial
             step={tutorialStep}
@@ -969,8 +1054,7 @@ function StudentApp() {
       </div>
       <section className="login-aside" aria-label="Şakanın Sınırında hakkında">
         <div className="brand-mark-wrapper">
-          <p className="brand-mark" aria-hidden="true">ŞS</p>
-          <span className="brand-sparkle" aria-hidden="true">✨</span>
+          <img className="brand-mark" src="/icon.png" alt="" aria-hidden="true" />
         </div>
         <p className="aside-kicker">Birlikte düşünmek için güvenli ve keyifli bir alan</p>
         <h1>Şaka nerede biter, incitmek nerede başlar?</h1>

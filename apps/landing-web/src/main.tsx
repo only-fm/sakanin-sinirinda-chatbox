@@ -107,7 +107,7 @@ function LandingApp() {
       {/* Üst Menü (Navbar) */}
       <header className={`landing-navbar${scrolled ? ' landing-navbar-scrolled' : ''}`}>
         <div className="nav-brand">
-          <span className="brand-badge" aria-hidden="true">ŞS</span>
+          <img className="brand-badge" src="/icon.png" alt="" aria-hidden="true" />
           <span className="brand-text">Şakanın Sınırında</span>
         </div>
         <nav className="nav-links">
@@ -286,7 +286,7 @@ function LandingApp() {
       <footer className="landing-footer">
         <div className="footer-content">
           <div className="footer-brand">
-            <span className="brand-badge-small">ŞS</span>
+            <img className="brand-badge-small" src="/icon.png" alt="" aria-hidden="true" />
             <strong>Şakanın Sınırında</strong>
           </div>
           <p className="footer-text">

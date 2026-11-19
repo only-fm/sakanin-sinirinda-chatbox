@@ -290,7 +290,7 @@ function TeacherApp() {
       {sidebarOpen && <button className="sidebar-backdrop" aria-label="Menüyü kapat" onClick={() => setSidebarOpen(false)} type="button" />}
       <aside className="teacher-sidebar">
         <div className="sidebar-brand">
-          <span className="sidebar-brand-mark">ŞS</span>
+          <img className="sidebar-brand-mark" src="/icon.png" alt="" aria-hidden="true" />
           <span>Şakanın<br />Sınırında</span>
         </div>
         <p className="sidebar-section-label">MENÜ</p>

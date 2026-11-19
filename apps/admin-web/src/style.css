@@ -76,13 +76,11 @@ main {
 }
 
 .sidebar-brand-mark {
-  display: grid;
+  display: block;
   width: 2.5rem;
   height: 2.5rem;
-  place-items: center;
-  border-radius: 0.8rem;
-  background: #365646;
-  color: #fffdf9;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .sidebar-section-label {
@@ -1140,12 +1138,6 @@ main:not(.admin-shell) {
   color: var(--text-main);
 }
 
-.sidebar-brand-mark {
-  border-radius: 0.85rem;
-  background: var(--primary-gradient);
-  box-shadow: 0 6px 16px var(--primary-glow);
-}
-
 .sidebar-section-label {
   color: #94a3b8;
 }
@@ -1354,7 +1346,7 @@ td {
 }
 
 /* ==========================================================================
-   SORUN BÝLDÝRÝMLERÝ SEKMESÝ
+   SORUN Bï¿½LDï¿½Rï¿½MLERï¿½ SEKMESï¿½
    ========================================================================== */
 
 .report-status-tag {

@@ -139,16 +139,11 @@ body {
 }
 
 .brand-badge {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: var(--radius-md);
-  background: var(--primary-gradient);
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px var(--primary-glow);
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .brand-text {
@@ -628,15 +623,11 @@ body {
 }
 
 .brand-badge-small {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 1.8rem;
   height: 1.8rem;
-  border-radius: var(--radius-sm);
-  background: var(--primary-gradient);
-  color: #ffffff;
-  font-size: 0.75rem;
-  font-weight: 800;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .footer-text {

@@ -70,13 +70,11 @@ textarea:focus-visible {
 }
 
 .sidebar-brand-mark {
-  display: grid;
+  display: block;
   width: 2.5rem;
   height: 2.5rem;
-  place-items: center;
-  border-radius: 0.8rem;
-  background: #365646;
-  color: #fffdf9;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .sidebar-section-label,
@@ -834,12 +832,6 @@ body {
   color: var(--text-main);
 }
 
-.sidebar-brand-mark {
-  border-radius: 0.85rem;
-  background: var(--primary-gradient);
-  box-shadow: 0 6px 16px var(--primary-glow);
-}
-
 .sidebar-section-label,
 .eyebrow {
   color: #8189a5;
@@ -1053,7 +1045,7 @@ textarea:focus-visible {
 }
 
 /* ==========================================================================
-   SORUN BÝLDÝRÝMÝ (YÜZEN BUTON + MODAL)
+   SORUN Bï¿½LDï¿½Rï¿½Mï¿½ (Yï¿½ZEN BUTON + MODAL)
    ========================================================================== */
 
 .problem-fab {

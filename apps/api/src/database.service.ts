@@ -70,6 +70,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       ALTER TABLE users ALTER COLUMN username SET NOT NULL;
       CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_idx ON users (LOWER(username));
+      CREATE INDEX IF NOT EXISTS users_role_idx ON users(role);
 
       CREATE TABLE IF NOT EXISTS audit_logs (
         id UUID PRIMARY KEY,
@@ -89,7 +90,58 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       CREATE TABLE IF NOT EXISTS auth_sessions (
         token_hash TEXT PRIMARY KEY,
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id UUID,
         expires_at TIMESTAMPTZ NOT NULL
+      );
+      ALTER TABLE auth_sessions ADD COLUMN IF NOT EXISTS device_id UUID;
+      CREATE INDEX IF NOT EXISTS auth_sessions_user_device_expiry_idx
+        ON auth_sessions(user_id, device_id, expires_at) WHERE device_id IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS admin_devices (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id UUID NOT NULL,
+        user_agent TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, device_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY,
+        recipient_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_device_id UUID,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        target_url TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        read_at TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS notifications_recipient_created_idx
+        ON notifications(recipient_user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS notifications_unread_idx
+        ON notifications(recipient_user_id, created_at DESC) WHERE is_read = FALSE;
+
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id UUID NOT NULL,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, device_id)
+      );
+      CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
+        ON push_subscriptions(user_id);
+
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS scenarios (

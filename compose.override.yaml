@@ -34,6 +34,8 @@ services:
       - /workspace/node_modules
     ports:
       - "${API_PORT:-3000}:3000"
+    healthcheck:
+      start_period: 120s
 
   student-web:
     image: ${COMPOSE_PROJECT_NAME:-sakanin-sinirinda-chatbox}-student-web:dev

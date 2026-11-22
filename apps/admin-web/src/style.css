@@ -421,15 +421,17 @@ td {
   }
 
   .admin-tabs {
-    display: flex;
-    gap: 0.3rem;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+    overflow-x: visible;
   }
 
   .admin-tab {
-    flex: 0 0 auto;
+    width: 100%;
+    flex: none;
     min-height: 2.6rem;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .admin-main {

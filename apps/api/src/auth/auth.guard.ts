@@ -5,6 +5,8 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import type { Response } from 'express';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service';
 import { AuthRequest, UserRole } from './auth.types';
@@ -53,6 +55,31 @@ export class AuthGuard implements CanActivate {
       if (user.role !== role || !requestedRoles.includes(user.role)) continue;
 
       request.user = user;
+      const currentDeviceId = getDeviceId(request);
+      const deviceId = currentDeviceId ?? randomUUID();
+      request.deviceId = deviceId;
+      if (!currentDeviceId) {
+        context.switchToHttp().getResponse<Response>().cookie('sakanin_device_id', deviceId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/api',
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          ...(process.env.SESSION_COOKIE_DOMAIN
+            ? { domain: process.env.SESSION_COOKIE_DOMAIN }
+            : {}),
+        });
+        try {
+          await this.authService.attachDeviceToSession(
+            token,
+            user,
+            deviceId,
+            request.headers['user-agent'],
+          );
+        } catch (error: unknown) {
+          console.error('Existing session device registration failed', error);
+        }
+      }
       return true;
     }
 
@@ -61,6 +88,17 @@ export class AuthGuard implements CanActivate {
     }
     throw new UnauthorizedException('Giriş yapmanız gerekiyor.');
   }
+}
+
+function getDeviceId(request: AuthRequest): string | null {
+  const cookie = request.headers.cookie
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('sakanin_device_id='));
+  const value = cookie?.slice('sakanin_device_id='.length);
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null;
 }
 
 function isUserRole(value: unknown): value is UserRole {

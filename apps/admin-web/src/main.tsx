@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PressableButton } from './PressableButton';
+import { NotificationCenter } from '../../shared/NotificationCenter';
 import './style.css';
 
 type User = {
@@ -751,6 +752,7 @@ function AdminApp() {
             </PressableButton>
             <h1>Merhaba, {user.username}</h1>
           </div>
+          <NotificationCenter role="admin" />
         </header>
 
       {activeTab !== 'content' && (

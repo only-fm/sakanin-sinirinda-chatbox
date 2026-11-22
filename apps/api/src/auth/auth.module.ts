@@ -5,11 +5,12 @@ import { DatabaseService } from '../database.service';
 import { AuthGuard } from './auth.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Module({
   imports: [UsersFileModule],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, DatabaseService, AuditService],
-  exports: [AuthGuard, AuthService, DatabaseService, AuditService],
+  providers: [AuthService, AuthGuard, DatabaseService, AuditService, NotificationsService],
+  exports: [AuthGuard, AuthService, DatabaseService, AuditService, NotificationsService],
 })
 export class AuthModule {}

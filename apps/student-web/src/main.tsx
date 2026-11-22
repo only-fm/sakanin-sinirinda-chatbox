@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PressableButton } from './PressableButton';
+import { NotificationCenter } from '../../shared/NotificationCenter';
 import './style.css';
 
 type User = {
@@ -260,15 +261,32 @@ function StudentApp() {
 
   useEffect(() => {
     if (!user) return;
+    const targetQuestionId = new URLSearchParams(window.location.search).get('question');
+    const targetScenarioId = new URLSearchParams(window.location.search).get('scenario');
+    if (targetQuestionId || new URLSearchParams(window.location.search).get('view') === 'expert') {
+      setActivePage('expert');
+    }
     void request<ScenarioSummary[]>('/scenarios')
-      .then(setScenarios)
+      .then((result) => {
+        setScenarios(result);
+        if (targetScenarioId && result.some((scenario) => scenario.id === targetScenarioId)) {
+          void openScenario(targetScenarioId);
+        }
+      })
       .catch((cause: unknown) => setError(errorMessage(cause)));
     void refreshQuestions();
   }, [user]);
 
   async function refreshQuestions() {
     try {
-      setQuestions(await request<ExpertQuestion[]>('/expert-questions/mine'));
+      const result = await request<ExpertQuestion[]>('/expert-questions/mine');
+      setQuestions(result);
+      const targetQuestionId = new URLSearchParams(window.location.search).get('question');
+      if (targetQuestionId && result.some((question) => question.id === targetQuestionId)) {
+        window.setTimeout(() => {
+          document.getElementById(`expert-question-${targetQuestionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 0);
+      }
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -640,6 +658,7 @@ function StudentApp() {
                 <p className="header-subtitle">Düşüncelerini ve bakış açılarını keşfetmeye hazır mısın?</p>
               </div>
             </div>
+            <NotificationCenter role="student" />
           </header>
 
           {activePage === 'expert' ? (
@@ -694,7 +713,7 @@ function StudentApp() {
                 ) : (
                   <ul className="expert-question-list">
                     {questions.map((question) => (
-                      <li className="expert-question-card" key={question.id}>
+                      <li className="expert-question-card" id={`expert-question-${question.id}`} key={question.id}>
                         <div className="question-card-meta">
                           <span>{question.scenarioTitle ?? 'Genel soru'}</span>
                           <time dateTime={question.createdAt}>{new Date(question.createdAt).toLocaleDateString('tr-TR')}</time>

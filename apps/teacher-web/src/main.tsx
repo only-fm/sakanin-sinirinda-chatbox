@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PressableButton } from './PressableButton';
+import { NotificationCenter } from '../../shared/NotificationCenter';
 import './style.css';
 
 type User = {
@@ -154,6 +155,9 @@ function TeacherApp() {
 
   useEffect(() => {
     if (!user) return;
+    const target = new URLSearchParams(window.location.search);
+    if (target.has('question')) setActiveTab('questions');
+    if (target.has('scenario')) setActiveTab('scenarios');
     void refreshQuestions();
     void refreshScenarios();
   }, [user]);
@@ -167,8 +171,11 @@ function TeacherApp() {
     try {
       const result = await request<ExpertQuestion[]>('/expert-questions');
       setQuestions(result);
+      const targetQuestionId = new URLSearchParams(window.location.search).get('question');
       setSelectedQuestionId((current) =>
-        current && result.some((question) => question.id === current)
+        targetQuestionId && result.some((question) => question.id === targetQuestionId)
+          ? targetQuestionId
+          : current && result.some((question) => question.id === current)
           ? current
           : result[0]?.id ?? null,
       );
@@ -181,8 +188,11 @@ function TeacherApp() {
     try {
       const result = await request<Scenario[]>('/scenarios/review');
       setScenarios(result);
+      const targetScenarioId = new URLSearchParams(window.location.search).get('scenario');
       setSelectedScenarioId((current) =>
-        current && result.some((scenario) => scenario.id === current)
+        targetScenarioId && result.some((scenario) => scenario.id === targetScenarioId)
+          ? targetScenarioId
+          : current && result.some((scenario) => scenario.id === current)
           ? current
           : result[0]?.id ?? null,
       );
@@ -352,6 +362,7 @@ function TeacherApp() {
           >
             Yenile
           </button>
+          <NotificationCenter role="teacher" />
         </header>
 
         {message && <p className="success" role="status">{message}</p>}

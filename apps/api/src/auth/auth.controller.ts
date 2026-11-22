@@ -11,6 +11,7 @@ import {
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
@@ -29,10 +30,18 @@ export class AuthController {
   @Post('setup')
   async setup(
     @Body() body: unknown,
+    @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ user: Awaited<ReturnType<AuthService['initialSetup']>>['user'] }> {
     const input = readObjectBody(body);
-    const session = await this.authService.initialSetup(input.username, input.password);
+    const deviceId = getDeviceId(request);
+    const session = await this.authService.initialSetup(
+      input.username,
+      input.password,
+      deviceId,
+      request.headers['user-agent'],
+    );
+    setDeviceCookie(response, deviceId);
     response.cookie(`sakanin_${session.user.role}_session`, session.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -49,10 +58,18 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: unknown,
+    @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ user: Awaited<ReturnType<AuthService['login']>>['user'] }> {
     const input = readObjectBody(body);
-    const session = await this.authService.login(input.username, input.password);
+    const deviceId = getDeviceId(request);
+    const session = await this.authService.login(
+      input.username,
+      input.password,
+      deviceId,
+      request.headers['user-agent'],
+    );
+    setDeviceCookie(response, deviceId);
     response.cookie(`sakanin_${session.user.role}_session`, session.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -112,6 +129,30 @@ export class AuthController {
     });
     return { message: 'Oturum kapatıldı.' };
   }
+}
+
+function getDeviceId(request: AuthRequest): string {
+  const cookie = request.headers.cookie
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('sakanin_device_id='));
+  const value = cookie?.slice('sakanin_device_id='.length);
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : randomUUID();
+}
+
+function setDeviceCookie(response: Response, deviceId: string): void {
+  response.cookie('sakanin_device_id', deviceId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api',
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+    ...(process.env.SESSION_COOKIE_DOMAIN
+      ? { domain: process.env.SESSION_COOKIE_DOMAIN }
+      : {}),
+  });
 }
 
 function isUserRole(value: string): value is 'student' | 'teacher' | 'admin' {

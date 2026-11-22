@@ -121,7 +121,15 @@ cd sakanin-sinirinda-chatbox
 
 ### 2. Ortam değişkenlerini (.env) oluşturma
 
-Depoda hazır bir `.env.example` dosyası bulunmayabilir. Proje kök dizininde `.env` dosyası oluşturun ve en azından aşağıdaki değerleri tanımlayın.
+Proje kök dizininde `.env` dosyası oluşturun ve en azından aşağıdaki değerleri tanımlayın. `.env.example` başlangıç şablonu olarak kullanılabilir.
+
+Şablondan yerel ortam dosyasını oluşturup kendi değerlerinizi `.env` içinde ayarlayın:
+
+```bash
+cp .env.example .env
+```
+
+`.env` gizli/yerel değerler içindir; Git'e eklemeyin. `.env.example` ise gerçek parola veya anahtar içermeyen, GitHub'a eklenebilecek bir şablondur.
 
 **Yerel geliştirme için örnek `.env`:**
 
@@ -172,11 +180,13 @@ npm install
 ### 4. Geliştirme ortamını Docker Compose ile başlatma
 
 ```bash
-docker compose up --build -d
+docker compose up --build --renew-anon-volumes -d
 docker compose ps
 ```
 
-İlk çalıştırmada imajların build edilmesi birkaç dakika sürebilir. API ayağa kalktığında veritabanı tablolarını otomatik oluşturur/günceller.
+`compose.override.yaml`, varsayılan olarak geliştirme servislerini ve portlarını etkinleştirir. İlk çalıştırmada imajların build edilmesi birkaç dakika sürebilir. `--renew-anon-volumes`, servislerin eski `node_modules` volume'larını kullanmasını önler; PostgreSQL verilerini tutan `postgres_data` named volume'u silmez. API derlemesi tamamlanıp healthcheck başarılı olduğunda API'ye bağlı web servisleri başlar.
+
+Servisler arka planda çalışır; Compose tarayıcı sekmelerini otomatik açmaz. Adresler için [Yerel erişim adresleri ve portlar](#yerel-erişim-adresleri-ve-portlar) bölümüne bakın.
 
 Sağlık kontrolü:
 
@@ -356,7 +366,7 @@ npm run build --workspace apps/landing-web
 
 ```bash
 # Geliştirme ortamını başlat
-docker compose up --build -d
+docker compose up --build --renew-anon-volumes -d
 
 # Servis durumunu görüntüle
 docker compose ps
@@ -365,7 +375,7 @@ docker compose ps
 docker compose logs -f
 
 # Tek servisi yeniden oluştur/başlat
-docker compose up --build -d api
+docker compose up --build --renew-anon-volumes -d api
 
 # Durdur (veriler korunur)
 docker compose down
@@ -406,6 +416,7 @@ Yedekleme planı yaparken en az şu öğeleri dahil edin:
 
 - **`POSTGRES_PASSWORD` / `DATABASE_URL` hatası:** `.env` dosyasını oluşturduğunuzdan ve zorunlu değişkenleri tanımladığınızdan emin olun.
 - **API başlamıyor / `users.json` hataları:** `config/users.json` dosyasının geçerli JSON olduğundan ve beklenen kullanıcı alanlarını içerdiğinden emin olun. Bozuk dosya yerine Yöntem A (kurulum sihirbazı) ile yeniden başlamak daha kolay olabilir.
+- **Web konteynerleri `Created` durumunda veya API `unhealthy` görünüyor:** `docker compose ps` ve `docker compose logs --tail=100 api` ile durumu inceleyin. Geliştirme API'sinin ilk derlemesi zaman alabilir; healthcheck ilk 120 saniye boyunca derleme için başlangıç toleransı tanır ve Compose web servislerini API sağlıklı olana kadar bekletir. Bağımlılıkları güncel imaj ve yeni anonim volume'larla başlatmak için `docker compose up --build --renew-anon-volumes -d` çalıştırın. `docker compose down -v` kullanmayın; veritabanı volume'unu da siler.
 - **Port çakışması:** `.env` içindeki port değişkenlerini değiştirip servisleri yeniden başlatın (`docker compose up --build -d`).
 - **Girişten sonra yanlış adrese yönlendirme:** `LOGIN_APP_URL`, `STUDENT_APP_URL`, `TEACHER_APP_URL`, `ADMIN_APP_URL` değerlerinin kullandığınız host/portlarla uyumlu olduğunu kontrol edin.
 - **Video yükleme sorunu:** Dosya türünün MP4/WebM/Ogg ve boyutunun 100 MB sınırı içinde olduğundan emin olun.
@@ -414,9 +425,35 @@ Yedekleme planı yaparken en az şu öğeleri dahil edin:
 ## Güvenlik ve gizlilik notları
 
 - `.env`, `config/users.json`, loglar ve yüklenen senaryo videoları Git tarafından izlenmez.
+- Oturum çerezi giriş/kurulum sırasında sunucuda rastgele üretilir; tarayıcıya `HttpOnly` olarak gönderilir ve üretimde `Secure` işaretlenir. Veritabanında çerezin kendisi değil, yalnızca token özeti saklanır. Çerez/token değerlerini kaynak koda, `.env` dosyasına veya GitHub'a koymayın.
+- `.env.example` yalnızca örnek/boş değerler içermelidir. Gerçek veritabanı parolası, VAPID private key'i veya başka gizli değerleri bu dosyaya yazmayın.
 - Parolalar `config/users.json` içinde scrypt hash olarak saklanır; düz metin parola saklanmaz.
 - API veritabanında parola hash'i tutmaz; oturum ve kullanıcı metadata kayıtlarını yönetir.
 - Öğrenci yanıtları ve soruları rol/yetki kontrolleri ile sınırlandırılır.
 - PostgreSQL, Compose yapılandırmasında host'a yayınlanmaz (izole ağ kullanılır).
 - Gerçek üretim dağıtımı (alan adı, DNS, TLS/SSL sonlandırma, ters vekil, gizli yönetimi, yedekleme otomasyonu vb.) bu depo içinde tamamlanmış değildir; canlı ortama taşımadan önce bu başlıklar ayrıca planlanmalıdır.
 - Proje kapsamı ve faz durumu için `tasks.md` dosyasına bakabilirsiniz.
+
+## Bildirimler ve Web Push yapılandırması
+
+Bildirim kayıtları API ilk açılışında PostgreSQL üzerinde otomatik oluşturulur ve gerekli index/FK tanımları aynı şema başlangıç adımında uygulanır. In-app bildirimleri ve SSE gerçek zamanlı akışı VAPID anahtarları olmadan da çalışır.
+
+Tarayıcı push için `.env` dosyasına VAPID anahtarlarını ekleyin. Bir çift anahtarı proje kökünde üretin:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Komut çıktısındaki public/private değerlerini `VAPID_PUBLIC_KEY` ve `VAPID_PRIVATE_KEY` değişkenlerine; `VAPID_SUBJECT` değerini size ulaşılabilecek `mailto:` adresine koyun. `.env.example` şablon olarak kullanılabilir. Private key'i yalnızca API ortamında tutun; hiçbir `VITE_` değişkenine veya frontend dosyasına eklemeyin.
+
+Değişkenleri güncelledikten sonra yeni ortam değerlerini çalışan konteynere aktarmak için API'yi yeniden oluşturun. Yalnızca `.env` değiştiyse yeniden build gerekmez:
+
+```bash
+docker compose up -d --force-recreate api
+```
+
+İzin penceresinde **“Sunucuda VAPID anahtarları yapılandırılmamış.”** mesajı görünüyorsa public/private anahtarlarının ikisini de `.env` dosyasına ekleyin, API konteynerini bu komutla yeniden oluşturun ve uygulamayı yenileyip **Bildirimleri Etkinleştir** düğmesine tekrar basın. `.env` dosyasını Git'e eklemeyin; özellikle private key'i paylaşmayın.
+
+Web Push yalnızca HTTPS güvenli bağlamlarında çalışır (localhost geliştirme istisnası). Üretimde TLS, her rol uygulamasında root kapsamlı `/service-worker.js` ve `/icon.png` dosyalarının sunulması gerekir. Bildirim izni kullanıcı düğmesine basmadan istenmez. Veritabanında push aboneliği cihaz bazında saklanır; push kapatma yalnızca mevcut cihazın aboneliğini siler. Push sağlayıcılarının erişilemediği durumda kalıcı in-app bildirimler kullanılmaya devam eder.
+
+Bildirim API yolları: `GET /api/notifications`, `GET /api/notifications/unread-count`, okundu/silme işlemleri, cihaz bazlı `/api/notifications/push/*` uçları ve kimlik doğrulamalı `GET /api/notifications/events` SSE akışı.

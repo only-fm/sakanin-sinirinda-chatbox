@@ -27,16 +27,19 @@ CMD ["npm", "run", "dev", "--workspace", "apps/landing-web", "--", "--host", "0.
 
 FROM frontend-base AS student-development
 COPY apps/student-web ./apps/student-web
+COPY apps/shared ./apps/shared
 EXPOSE 5170 5173
 CMD ["npm", "run", "dev", "--workspace", "apps/student-web", "--", "--host", "0.0.0.0"]
 
 FROM frontend-base AS teacher-development
 COPY apps/teacher-web ./apps/teacher-web
+COPY apps/shared ./apps/shared
 EXPOSE 5174
 CMD ["npm", "run", "dev", "--workspace", "apps/teacher-web", "--", "--host", "0.0.0.0"]
 
 FROM frontend-base AS admin-development
 COPY apps/admin-web ./apps/admin-web
+COPY apps/shared ./apps/shared
 EXPOSE 5175
 CMD ["npm", "run", "dev", "--workspace", "apps/admin-web", "--", "--host", "0.0.0.0"]
 
@@ -46,14 +49,17 @@ RUN npm run build --workspace apps/landing-web
 
 FROM frontend-base AS student-build
 COPY apps/student-web ./apps/student-web
+COPY apps/shared ./apps/shared
 RUN npm run build --workspace apps/student-web
 
 FROM frontend-base AS teacher-build
 COPY apps/teacher-web ./apps/teacher-web
+COPY apps/shared ./apps/shared
 RUN npm run build --workspace apps/teacher-web
 
 FROM frontend-base AS admin-build
 COPY apps/admin-web ./apps/admin-web
+COPY apps/shared ./apps/shared
 RUN npm run build --workspace apps/admin-web
 
 FROM nginx:1.27-alpine AS frontend-production

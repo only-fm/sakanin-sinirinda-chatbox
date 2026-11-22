@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { DatabaseService } from '../database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface ExpertQuestionRow {
   id: string;
@@ -26,6 +27,7 @@ export class ExpertQuestionsService {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(input: unknown, actor: AuthenticatedUser) {
@@ -57,6 +59,23 @@ export class ExpertQuestionsService {
       entityType: 'expert_question',
       entityId: result.rows[0].id,
       details: { scenarioId },
+    });
+    try {
+      await this.notifications.create(actor.id, {
+        type: 'expert_question_submitted',
+        title: 'Sorunuz Gönderildi',
+        message: 'Sorunuz uzman ekibine başarıyla iletildi.',
+        targetUrl: `/?question=${result.rows[0].id}&view=expert`,
+      });
+    } catch (error: unknown) {
+      console.error('Notification creation failed', error);
+    }
+    await this.notifications.createForRoles(['teacher'], {
+      type: 'expert_question_created',
+      title: 'Yeni Öğrenci Sorusu',
+      message: 'Bir öğrenci uzman desteği için yeni bir soru gönderdi.',
+      targetUrl: `/?question=${result.rows[0].id}`,
+      metadata: { questionId: result.rows[0].id },
     });
     return toQuestion(result.rows[0], actor.username);
   }
@@ -102,6 +121,17 @@ export class ExpertQuestionsService {
       entityType: 'expert_question',
       entityId: id,
     });
+    try {
+      await this.notifications.create(row.student_id, {
+        type: 'expert_question_answered',
+        title: 'Uzmanınız Sorunuzu Yanıtladı',
+        message: 'Uzmanınız sorunuza yeni bir yanıt verdi.',
+        targetUrl: `/?question=${id}&view=expert`,
+        metadata: { questionId: id },
+      });
+    } catch (error: unknown) {
+      console.error('Notification creation failed', error);
+    }
     return toQuestion(row);
   }
 

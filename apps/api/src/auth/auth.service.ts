@@ -8,6 +8,7 @@ import {
 import { createHash, randomBytes } from 'node:crypto';
 import { AuditService } from '../audit.service';
 import { DatabaseService } from '../database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UserFileEntry, UsersFileService } from '../admin/users-file.service';
 import { AuthenticatedUser, UserRole } from './auth.types';
 import { verifyPassword } from './password-hasher';
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly usersFile: UsersFileService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async getSetupStatus(): Promise<{ needsSetup: boolean }> {
@@ -34,7 +36,12 @@ export class AuthService {
     return { needsSetup: !hasAdmin };
   }
 
-  async initialSetup(usernameInput: unknown, passwordInput: unknown): Promise<{
+  async initialSetup(
+    usernameInput: unknown,
+    passwordInput: unknown,
+    deviceId?: string,
+    userAgent?: string,
+  ): Promise<{
     accessToken: string;
     user: AuthenticatedUser;
   }> {
@@ -61,9 +68,9 @@ export class AuthService {
     const authenticatedUser = this.toAuthenticatedUser(user);
     const accessToken = this.createToken();
     await this.database.pool.query(
-      `INSERT INTO auth_sessions (token_hash, user_id, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '${SESSION_DURATION_HOURS} hours')`,
-      [this.hashToken(accessToken), user.id],
+      `INSERT INTO auth_sessions (token_hash, user_id, device_id, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '${SESSION_DURATION_HOURS} hours')`,
+      [this.hashToken(accessToken), user.id, deviceId ?? null],
     );
     await this.audit.record({
       actor: authenticatedUser,
@@ -71,11 +78,23 @@ export class AuthService {
       entityType: 'auth',
       entityId: user.id,
     });
+    if (deviceId) {
+      try {
+        await this.notifications.registerAdminDevice(authenticatedUser, deviceId, userAgent);
+      } catch (error: unknown) {
+        console.error('Admin device registration failed', error);
+      }
+    }
 
     return { accessToken, user: authenticatedUser };
   }
 
-  async login(usernameInput: unknown, passwordInput: unknown): Promise<{
+  async login(
+    usernameInput: unknown,
+    passwordInput: unknown,
+    deviceId?: string,
+    userAgent?: string,
+  ): Promise<{
     accessToken: string;
     user: AuthenticatedUser;
   }> {
@@ -101,9 +120,9 @@ export class AuthService {
     const authenticatedUser = this.toAuthenticatedUser(user);
     const accessToken = this.createToken();
     await this.database.pool.query(
-      `INSERT INTO auth_sessions (token_hash, user_id, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '${SESSION_DURATION_HOURS} hours')`,
-      [this.hashToken(accessToken), user.id],
+      `INSERT INTO auth_sessions (token_hash, user_id, device_id, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '${SESSION_DURATION_HOURS} hours')`,
+      [this.hashToken(accessToken), user.id, deviceId ?? null],
     );
     await this.audit.record({
       actor: authenticatedUser,
@@ -111,6 +130,13 @@ export class AuthService {
       entityType: 'auth',
       entityId: user.id,
     });
+    if (authenticatedUser.role === 'admin' && deviceId) {
+      try {
+        await this.notifications.registerAdminDevice(authenticatedUser, deviceId, userAgent);
+      } catch (error: unknown) {
+        console.error('Admin device registration failed', error);
+      }
+    }
 
     return { accessToken, user: authenticatedUser };
   }
@@ -127,6 +153,21 @@ export class AuthService {
     if (!row) return null;
     const user = (await this.usersFile.getUsers()).find((entry) => entry.id === row.id);
     return user ? this.toAuthenticatedUser(user) : null;
+  }
+
+  async attachDeviceToSession(
+    token: string,
+    user: AuthenticatedUser,
+    deviceId: string,
+    userAgent: string | undefined,
+  ): Promise<void> {
+    await this.database.pool.query(
+      'UPDATE auth_sessions SET device_id = $2 WHERE token_hash = $1',
+      [this.hashToken(token), deviceId],
+    );
+    if (user.role === 'admin') {
+      await this.notifications.trackAdminDevice(user, deviceId, userAgent);
+    }
   }
 
   async completeTutorial(userId: string): Promise<AuthenticatedUser> {

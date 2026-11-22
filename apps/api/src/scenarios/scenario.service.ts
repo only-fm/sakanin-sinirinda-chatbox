@@ -12,6 +12,7 @@ import { basename, join, resolve } from 'node:path';
 import { AuditService } from '../audit.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { DatabaseService } from '../database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MAX_VIDEO_BYTES, MEDIA_DIRECTORY } from './scenario-media';
 import {
   Perspective,
@@ -48,6 +49,7 @@ export class ScenarioService implements OnModuleInit {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -99,6 +101,20 @@ export class ScenarioService implements OnModuleInit {
       entityType: 'scenario',
       entityId: scenario.id,
       details: { title: scenario.title },
+    });
+    await this.notifications.createForRoles(['teacher'], {
+      type: 'scenario_published',
+      title: 'Yeni Senaryo Yayınlandı',
+      message: 'Platforma yeni bir senaryo eklendi.',
+      targetUrl: `/?scenario=${scenario.id}`,
+      metadata: { scenarioId: scenario.id },
+    });
+    await this.notifications.createForRoles(['student'], {
+      type: 'scenario_published',
+      title: 'Yeni Senaryo Yayında',
+      message: 'İncelemeniz için yeni bir senaryo yayımlandı.',
+      targetUrl: `/?scenario=${scenario.id}`,
+      metadata: { scenarioId: scenario.id },
     });
     return scenario;
   }

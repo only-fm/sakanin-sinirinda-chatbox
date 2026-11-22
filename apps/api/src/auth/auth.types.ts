@@ -10,7 +10,9 @@ export interface AuthenticatedUser {
 export interface AuthRequest {
   headers: {
     cookie?: string;
+    'user-agent'?: string;
   };
+  deviceId?: string;
   query: Record<string, unknown>;
   user: AuthenticatedUser;
 }

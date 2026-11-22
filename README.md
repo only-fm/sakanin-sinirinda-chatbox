@@ -1,146 +1,230 @@
 # Şakanın Sınırında
 
-Öğrencilerin şaka ile akran zorbalığı arasındaki farkı; senaryolar, bağlam bilgisi, farklı bakış açıları ve yansıtıcı sorular üzerinden keşfetmesine yardımcı olan bir web uygulamasıdır.
+Şakanın Sınırında, öğrencilerin şaka ile akran zorbalığı arasındaki farkı senaryolar, bağlam bilgisi, farklı bakış açıları ve yansıtıcı sorular üzerinden keşfetmesine yardımcı olan bir web uygulamasıdır.
 
-Bu depo; tanıtım (landing), ortak giriş, öğrenci, öğretmen/uzman ve yönetici arayüzlerini ayrı frontend uygulamaları olarak, NestJS tabanlı bir API ve PostgreSQL veritabanı ile birlikte sunan bir monorepo içerir.
+Bu README kullanıcılar ve geliştiriciler için iki ayrı bölümde hazırlanmıştır.
 
-## İçindekiler
+## Kullanıcılar İçin
 
-- [Proje özeti](#proje-özeti)
-- [Öne çıkan özellikler](#öne-çıkan-özellikler)
-- [Mimari ve depo yapısı](#mimari-ve-depo-yapısı)
-- [Teknolojiler](#teknolojiler)
-- [Gereksinimler](#gereksinimler)
-- [Kurulum](#kurulum)
-  - [1. Depoyu hazırlama](#1-depoyu-hazırlama)
-  - [2. Ortam değişkenlerini (.env) oluşturma](#2-ortam-değişkenlerini-env-oluşturma)
-  - [3. Bağımlılıkları yükleme](#3-bağımlılıkları-yükleme)
-  - [4. Geliştirme ortamını Docker Compose ile başlatma](#4-geliştirme-ortamını-docker-compose-ile-başlatma)
-  - [5. İlk yönetici hesabı ve ilk giriş](#5-ilk-yönetici-hesabı-ve-ilk-giriş)
-  - [6. Servisleri durdurma](#6-servisleri-durdurma)
-- [Yerel erişim adresleri ve portlar](#yerel-erişim-adresleri-ve-portlar)
-- [Kullanıcı rolleri ve yetkiler](#kullanıcı-rolleri-ve-yetkiler)
-- [Senaryo, medya ve veri yönetimi](#senaryo-medya-ve-veri-yönetimi)
-- [Ortam değişkenleri](#ortam-değişkenleri)
-- [Faydalı komutlar](#faydalı-komutlar)
-- [Üretim benzeri yerel çalışma](#üretim-benzeri-yerel-çalışma)
-- [Veri kalıcılığı ve yedekleme notları](#veri-kalıcılığı-ve-yedekleme-notları)
-- [Sorun giderme](#sorun-giderme)
-- [Güvenlik ve gizlilik notları](#güvenlik-ve-gizlilik-notları)
+### Uygulama nedir?
 
-## Proje özeti
+Uygulama, bir durumu doğru veya yanlış bir test sorusu olarak puanlamaktan ziyade öğrencilerin bağlamı, duyguları ve farklı bakış açılarını değerlendirmesini amaçlar.
 
-Uygulamanın amacı, öğrencilerin bir durumu "doğru/yanlış" şeklinde puanlanan bir test gibi değil; bağlamı, duyguları ve farklı bakış açılarını değerlendirerek düşünmesini desteklemektir.
+Temel kullanım akışları:
 
-- Öğrenciler yayımlanmış senaryoları inceler, durumu "şaka" veya "zorbalık" olarak nasıl değerlendirdiklerini ve gerekçelerini yazar, yansıtıcı soruları yanıtlar.
-- Öğrenciler uzmanlara (öğretmen/uzman rolü) soru gönderebilir ve yanıtlarını takip edebilir.
-- Öğretmen/uzman rolü yayımlanmış senaryoları inceleyebilir ve öğrenci sorularını yanıtlayabilir.
-- Yöneticiler senaryo içeriklerini yönetir, kullanıcı hesaplarını düzenler, öğrenci değerlendirmelerini ve hareket kayıtlarını inceler, sorun bildirimlerini takip eder.
+- Öğrenciler yayımlanmış senaryoları inceler.
+- Öğrenciler durumu şaka veya zorbalık olarak değerlendirir ve gerekçesini yazar.
+- Öğrenciler yansıtıcı soruları yanıtlar.
+- Öğrenciler öğretmen/uzmanlara soru gönderebilir ve yanıtlarını takip edebilir.
+- Öğretmen ve uzmanlar yayımlanmış senaryoları inceleyebilir ve öğrenci sorularını yanıtlayabilir.
+- Yöneticiler kullanıcı, senaryo, değerlendirme, bildirim ve hareket kayıtlarını yönetebilir.
 
-## Öne çıkan özellikler
+### Kullanıcı rolleri
 
-- **Rol bazlı arayüzler:** Landing, giriş, öğrenci, öğretmen/uzman ve yönetici için ayrı uygulamalar.
-- **Ortak kimlik doğrulama:** Kullanıcı adı/parola ile giriş; rol otomatik algılanır ve ilgili arayüze yönlendirilir.
-- **İlk kurulum sihirbazı:** Sistemde yönetici hesabı yoksa giriş tarafında ilk yönetici hesabı oluşturma akışı sunulur.
-- **Dosya tabanlı kullanıcı kaynağı:** Hesaplar `config/users.json` dosyasında tutulur; parolalar scrypt ile hash'lenir.
-- **Senaryo yönetimi:** Taslak/yayın akışı, başlık-metin-bağlam, bakış açıları, yansıtıcı sorular, harici video URL'si veya yüklenen video desteği.
-- **Öğrenci deneyimi:** Senaryo keşfi, değerlendirme/gerekçe/yanıt kaydetme, uzmanlara soru sorma, rehber (tutorial) adımları.
-- **Uzman/öğretmen deneyimi:** Yayımlanmış senaryo inceleme, öğrenci sorularını yanıtlama, sorun bildirimi.
-- **Yönetim paneli:** Hesap yönetimi, içerik yönetimi, öğrenci değerlendirmeleri, hareket kayıtları (audit), sorun bildirimleri.
-- **Sorun bildirimi:** Öğrenci ve uzman arayüzlerinden ekran bağlamı ve son API hatası bilgisiyle yöneticiye bildirim gönderimi.
-- **Oturum ve yetkilendirme:** HTTP-only cookie tabanlı oturumlar, rol kontrolleri ve sunucu tarafı doğrulama.
+| Rol | Kullanıcı paneli | Yapabilecekleri |
+|---|---|---|
+| Öğrenci | `5173` geliştirme / `8081` üretim benzeri | Senaryoları inceleme, değerlendirme ve gerekçe kaydetme, yansıtıcı soruları yanıtlama, uzmana soru sorma, sorun bildirme |
+| Öğretmen/Uzman | `5174` geliştirme / `8082` üretim benzeri | Yayımlanmış senaryoları inceleme, öğrenci sorularını yanıtlama, sorun bildirme |
+| Yönetici | `5175` geliştirme / `8083` üretim benzeri | Hesap ve senaryo yönetimi, öğrenci değerlendirmelerini inceleme, bildirim ve hareket kayıtlarını takip etme |
 
-## Mimari ve depo yapısı
+Giriş ekranında ayrıca rol seçimi yapılmaz. Kullanıcı adı ve parola kullanıcı rolünü belirler; girişten sonra ilgili panel otomatik olarak açılır.
+
+### Uygulamaya erişim
+
+Docker Compose ortamı çalıştırıldıktan sonra geliştirme adresleri:
+
+| Bölüm | Adres |
+|---|---|
+| Tanıtım sayfası | <http://localhost:5172> |
+| Ortak giriş ve ilk kurulum | <http://localhost:5170> |
+| Öğrenci paneli | <http://localhost:5173> |
+| Öğretmen/Uzman paneli | <http://localhost:5174> |
+| Yönetici paneli | <http://localhost:5175> |
+| API sağlık kontrolü | <http://localhost:3000/api/health> |
+
+Beklenen sağlık kontrolü yanıtı:
+
+```json
+{"status":"ok"}
+```
+
+Üretim benzeri yerel adresler varsayılan olarak:
+
+| Bölüm | Adres |
+|---|---|
+| Giriş | <http://localhost:8080> |
+| Öğrenci | <http://localhost:8081> |
+| Öğretmen/Uzman | <http://localhost:8082> |
+| Yönetici | <http://localhost:8083> |
+
+### İlk yönetici hesabını oluşturma
+
+İlk kurulum, sistemde henüz yönetici hesabı yoksa giriş uygulamasında otomatik olarak açılır.
+
+1. Giriş uygulamasını açın: <http://localhost:5170>
+2. `/setup` akışındaki kullanıcı adı ve parola alanlarını doldurun.
+3. İlk yönetici hesabını oluşturduktan sonra uygulama sizi yönetici paneline yönlendirir.
+
+Kurulum, hesap bilgilerini `config/users.json` dosyasına kaydeder ve oturum başlatır. Sonraki öğrenci, öğretmen/uzman ve yönetici hesapları yönetici panelinin **Hesaplar** bölümünden oluşturulabilir.
+
+### Senaryolar ve videolar
+
+- Senaryolar taslak veya yayımlanmış durumda olabilir.
+- Yalnızca yayımlanmış senaryolar öğrencilere görünür.
+- Yönetici senaryoya başlık, metin, bağlam, bakış açıları ve yansıtıcı sorular ekleyebilir.
+- Senaryoya harici bir video bağlantısı eklenebilir.
+- MP4, WebM veya Ogg biçiminde en fazla 100 MB boyutunda video yüklenebilir.
+- Öğrenci değerlendirmeleri ve uzmana sorulan sorular ilgili rollerin yetki sınırları içinde saklanır.
+
+### Bildirimler
+
+- Uygulama içi bildirimler kullanılabilir.
+- Bildirim merkezinden okunmuş bildirimler işaretlenebilir ve bildirimler silinebilir.
+- VAPID anahtarları yapılandırılmışsa tarayıcı masaüstü bildirimleri kullanılabilir.
+- Bildirim izni yalnızca kullanıcı bildirim düğmesine bastığında istenir.
+- Web Push desteği HTTPS gerektirir; yerel geliştirmede `localhost` desteklenen istisnadır.
+
+### Yaygın kullanım sorunları
+
+- **Yanlış panele yönlendirme:** Oturum açtıktan sonra kullanıcıya ait rolün doğru olduğundan emin olun.
+- **Giriş yapılamaması:** Kullanıcı adını, parolayı ve hesabın yönetici tarafından aktif tutulduğunu kontrol edin.
+- **Port çakışması:** `.env` içindeki geliştirme veya üretim benzeri port değerlerini değiştirin.
+- **Video yüklenmiyor:** Dosya türünün MP4, WebM veya Ogg ve boyutunun 100 MB sınırında olduğundan emin olun.
+- **Bildirim ayarı görünmüyor veya devre dışı:** Tarayıcı bildirim iznini ve API'nin VAPID yapılandırmasını kontrol edin.
+
+## Geliştiriciler İçin
+
+### Proje yapısı
+
+Bu depo, ayrı frontend uygulamalarını, bir NestJS API'yi ve PostgreSQL veritabanını içeren bir npm monorepo'sudur.
 
 ```text
 .
 ├─ apps/
-│  ├─ landing-web/       # Tanıtım / açılış sayfası (React + Vite)
-│  ├─ student-web/       # Ortak giriş + öğrenci çalışma alanı (React + Vite)
-│  ├─ teacher-web/       # Öğretmen/uzman arayüzü (React + Vite)
-│  ├─ admin-web/         # Yönetici arayüzü (React + Vite)
-│  └─ api/               # NestJS API (modüler monolit)
+│  ├─ landing-web/       # Tanıtım sayfası
+│  ├─ student-web/       # Giriş ve öğrenci çalışma alanı
+│  ├─ teacher-web/       # Öğretmen/uzman çalışma alanı
+│  ├─ admin-web/         # Yönetici çalışma alanı
+│  └─ api/               # NestJS API
 ├─ config/
-│  └─ users.example.json # Kullanıcı dosyası şablonu
+│  ├─ users.example.json # Kullanıcı dosyası örneği
+│  └─ users.json         # Yerel kullanıcı verileri (Git'e eklenmez)
 ├─ infra/
 │  ├─ docker/            # API ve frontend Dockerfile'ları
-│  └─ nginx/             # Üretim benzeri frontend sunumu ve /api proxy
-├─ scenarios/
-│  └─ videos/            # Yüklenen senaryo videoları (kalıcı, .gitignore'da)
-├─ compose.yaml          # Temel Docker Compose tanımı
-├─ compose.override.yaml # Yerel geliştirme override'ı (varsayılan)
-├─ compose.prod.yaml     # Üretim benzeri yerel çalışma override'ı
-├─ tasks.md              # Proje kapsamı/faz notları
-└─ package.json          # npm workspaces ve kök script'ler
+│  └─ nginx/             # Üretim benzeri sunum ve /api proxy
+├─ scenarios/videos/     # Yüklenen senaryo videoları
+├─ compose.yaml          # Temel Docker Compose yapılandırması
+├─ compose.override.yaml # Varsayılan yerel geliştirme ayarları
+├─ compose.prod.yaml     # Üretim benzeri yerel çalışma ayarları
+└─ package.json          # Kök komutlar ve npm workspaces
 ```
 
-### Uygulamalar ve sorumluluklar
+### Bileşen sorumlulukları
 
-| Bileşen | Açıklama |
-|---|---|
-| `apps/landing-web` | Tanıtım sayfası; oturum durumuna göre girişe veya ilgili panele yönlendirir. |
-| `apps/student-web` | Aynı kod tabanı iki bağlamda kullanılır: **giriş uygulaması** (`login-web` servisi) ve **öğrenci uygulaması** (`student-web` servisi). Kurulum sihirbazı ve giriş akışı bu uygulamadadır. |
-| `apps/teacher-web` | Uzman/öğretmen paneli: senaryo inceleme, öğrenci sorularını yanıtlama, sorun bildirimi. |
-| `apps/admin-web` | Yönetim paneli: kullanıcılar, senaryolar, öğrenci değerlendirmeleri, audit log'ları, sorun bildirimleri. |
-| `apps/api` | Kimlik doğrulama, yetkilendirme, senaryo/yanıt/soru/bildirim/audit iş mantığı ve PostgreSQL şema başlangıcı. |
+| Bileşen | Teknoloji | Sorumluluk |
+|---|---|---|
+| `apps/landing-web` | React 19, Vite, TypeScript | Tanıtım sayfası ve oturum durumuna göre yönlendirme |
+| `apps/student-web` | React 19, Vite, TypeScript | Ortak giriş kurulum akışı ve öğrenci arayüzü |
+| `apps/teacher-web` | React 19, Vite, TypeScript | Senaryo inceleme ve öğrenci sorularını yanıtlama |
+| `apps/admin-web` | React 19, Vite, TypeScript | Hesap, senaryo, değerlendirme, audit ve bildirim yönetimi |
+| `apps/api` | NestJS 11, Node.js, TypeScript | Kimlik doğrulama, yetkilendirme ve iş mantığı |
+| PostgreSQL | PostgreSQL 17 | Oturum, senaryo, değerlendirme, bildirim ve audit verileri |
 
-### API modülleri (özet)
+API modül grupları: `auth`, `admin`, `scenarios`, `expert-questions`, `problem-reports`, `notifications`, `audit` ve `health`.
 
-- `auth`: oturum açma/kapama, mevcut kullanıcı, ilk kurulum, tutorial tamamlama
-- `admin`: kullanıcı CRUD işlemleri (dosya + DB metadata senkronizasyonu)
-- `scenarios`: senaryo yönetimi, yayınlama, medya, öğrenci yanıtları
-- `expert-questions`: öğrenci soruları ve uzman yanıtları
-- `problem-reports`: sorun bildirimleri
-- `audit`: hareket kayıtları
-- `health`: sağlık kontrolü (`GET /api/health`)
+### Gereksinimler
 
-## Teknolojiler
-
-- **Frontend:** React 19, Vite 7, TypeScript
-- **Backend:** NestJS 11, Node.js, TypeScript, `pg`
-- **Veritabanı:** PostgreSQL 17 (Docker)
-- **Altyapı:** Docker Compose, Nginx (üretim benzeri frontend sunumu ve `/api` proxy)
-- **Monorepo:** npm workspaces (`apps/*`)
-
-## Gereksinimler
-
-- [Node.js](https://nodejs.org/) **22+** ve **npm**
-- [Docker Engine](https://docs.docker.com/engine/install/) ve **Docker Compose** (v2, `docker compose`)
+- Node.js 22 veya üzeri
+- npm
+- Docker Desktop veya Docker Engine
+- Docker Compose v2 (`docker compose`)
 - Git
 
-> Not: Docker tabanlı kurulum önerilen yoldur; API, frontend'ler ve PostgreSQL bu şekilde birlikte çalışacak biçimde yapılandırılmıştır.
+Docker tabanlı çalışma önerilen akıştır. Windows için Docker Desktop, Linux için Docker Engine ve Compose eklentisinin kurulu olması gerekir.
 
-## Kurulum
+### Kurulum aşamaları
 
-### 1. Depoyu hazırlama
+#### Linux
+
+1. Docker Engine, Docker Compose ve Git'i işletim sisteminizin paket yöneticisiyle kurun.
+2. Projeyi terminalde klonlayın:
 
 ```bash
 git clone <repo-url>
 cd sakanin-sinirinda-chatbox
+npm install
 ```
 
-### 2. Ortam değişkenlerini (.env) oluşturma
-
-Proje kök dizininde `.env` dosyası oluşturun ve en azından aşağıdaki değerleri tanımlayın. `.env.example` başlangıç şablonu olarak kullanılabilir.
-
-Şablondan yerel ortam dosyasını oluşturup kendi değerlerinizi `.env` içinde ayarlayın:
+3. Ortam dosyasını oluşturun:
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` gizli/yerel değerler içindir; Git'e eklemeyin. `.env.example` ise gerçek parola veya anahtar içermeyen, GitHub'a eklenebilecek bir şablondur.
+4. Docker servislerini başlatın:
 
-**Yerel geliştirme için örnek `.env`:**
+```bash
+docker compose up --build --renew-anon-volumes -d
+docker compose ps
+```
+
+İhtiyaç halinde mevcut kullanıcının Docker grubuna eklenmesi gerekebilir:
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+```
+
+Bu komutlardan sonra oturumu yeniden başlatmak da gerekebilir.
+
+#### Windows
+
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) uygulamasını kurun.
+2. Docker Desktop ayarlarından **WSL 2 based engine** seçeneğini etkinleştirin.
+3. Windows'ta Git'i ve Node.js 22 veya üzeri sürümü kurun.
+4. PowerShell veya WSL terminalinde depoyu klonlayın:
+
+PowerShell:
+
+```powershell
+git clone <repo-url>
+cd sakanin-sinirinda-chatbox
+npm install
+Copy-Item .env.example .env
+```
+
+WSL:
+
+```bash
+git clone <repo-url>
+cd sakanin-sinirinda-chatbox
+npm install
+cp .env.example .env
+```
+
+Windows performansı için projeyi `/mnt/c` yerine WSL dosya sisteminde, örneğin `~/projeler/sakanin-sinirinda-chatbox` altında tutun.
+
+5. Docker Desktop'ın çalıştığından emin olun ve PowerShell veya WSL terminalinden `.env` dosyasını kullanarak servisleri başlatın:
+
+```bash
+docker compose up --build --renew-anon-volumes -d
+docker compose ps
+```
+
+PowerShell'den çalıştırıyorsanız komutun olduğu dizin Windows proje dizini olmalıdır.
+
+### Ortam değişkenleri
+
+Linux ve Windows kurulumlarında proje kökünde bulunan `.env.example` dosyasından oluşturulan `.env` dosyası aynı değişkenleri kullanır.
+
+Minimum yerel yapılandırma:
 
 ```env
-# PostgreSQL
 POSTGRES_USER=sakanin
 POSTGRES_PASSWORD=change-me-local-only
 POSTGRES_DB=sakanin
 DATABASE_URL=postgresql://sakanin:change-me-local-only@db:5432/sakanin
 
-# Geliştirme portları (opsiyonel, varsayılanlar aşağıdadır)
 API_PORT=3000
 LANDING_DEV_PORT=5172
 LOGIN_DEV_PORT=5170
@@ -148,45 +232,61 @@ STUDENT_DEV_PORT=5173
 TEACHER_DEV_PORT=5174
 ADMIN_DEV_PORT=5175
 
-# Üretim benzeri yerel portlar (opsiyonel)
-LOGIN_PROD_PORT=8080
-STUDENT_PROD_PORT=8081
-TEACHER_PROD_PORT=8082
-ADMIN_PROD_PORT=8083
+SESSION_COOKIE_DOMAIN=
 
-# CORS / yönlendirme (gerekirse özelleştirin)
-# WEB_ORIGINS=http://localhost:5170,http://localhost:5172,http://localhost:5173,http://localhost:5174,http://localhost:5175
-# LOGIN_APP_URL=http://localhost:5170
-# STUDENT_APP_URL=http://localhost:5173
-# TEACHER_APP_URL=http://localhost:5174
-# ADMIN_APP_URL=http://localhost:5175
-
-# Farklı alt alan adlarında ortak oturum gerekiyorsa (yerelde boş bırakın)
-# SESSION_COOKIE_DOMAIN=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:admin@example.com
 ```
 
-> `POSTGRES_PASSWORD` ve `DATABASE_URL` içindeki parolanın aynı olduğundan emin olun. Gerçek/parlaşılan ortamlarda güçlü ve gizli değerler kullanın.
+`POSTGRES_PASSWORD` ile `DATABASE_URL` içindeki parolanın aynı olması gerekir. `.env` dosyasını Git'e eklemeyin.
 
-### 3. Bağımlılıkları yükleme
+Temel değişkenler:
 
-Yerelde derleme/tür denetimi komutlarını çalıştırmak veya geliştirme araçlarını kullanmak için:
+| Değişken | Varsayılan / açıklama |
+|---|---|
+| `POSTGRES_USER` | PostgreSQL kullanıcı adı; varsayılan `sakanin` |
+| `POSTGRES_PASSWORD` | PostgreSQL parolası; zorunlu |
+| `POSTGRES_DB` | PostgreSQL veritabanı adı; varsayılan `sakanin` |
+| `DATABASE_URL` | API'nin PostgreSQL bağlantı dizesi |
+| `API_PORT` | Geliştirmede API host portu; varsayılan `3000` |
+| `LANDING_DEV_PORT` | Geliştirme landing portu; varsayılan `5172` |
+| `LOGIN_DEV_PORT` | Geliştirme giriş portu; varsayılan `5170` |
+| `STUDENT_DEV_PORT` | Geliştirme öğrenci portu; varsayılan `5173` |
+| `TEACHER_DEV_PORT` | Geliştirme öğretmen/uzman portu; varsayılan `5174` |
+| `ADMIN_DEV_PORT` | Geliştirme yönetici portu; varsayılan `5175` |
+| `LOGIN_PROD_PORT` | Üretim benzeri giriş portu; varsayılan `8080` |
+| `STUDENT_PROD_PORT` | Üretim benzeri öğrenci portu; varsayılan `8081` |
+| `TEACHER_PROD_PORT` | Üretim benzeri öğretmen/uzman portu; varsayılan `8082` |
+| `ADMIN_PROD_PORT` | Üretim benzeri yönetici portu; varsayılan `8083` |
+| `WEB_ORIGINS` | API CORS origin listesi |
+| `LOGIN_APP_URL` | Giriş uygulamasının yönlendirme URL'i |
+| `STUDENT_APP_URL` | Öğrenci uygulamasının yönlendirme URL'i |
+| `TEACHER_APP_URL` | Öğretmen/uzman uygulamasının yönlendirme URL'i |
+| `ADMIN_APP_URL` | Yönetici uygulamasının yönlendirme URL'i |
+| `SESSION_COOKIE_DOMAIN` | Çoklu alt alan adı için cookie domain'i |
+| `USERS_FILE` | Kullanıcı JSON dosyasının API içindeki yolu |
+| `MEDIA_DIRECTORY` | Yüklenen videoların API içindeki dizini |
+| `VAPID_PUBLIC_KEY` | Tarayıcı push bildirimleri için public key |
+| `VAPID_PRIVATE_KEY` | Tarayıcı push bildirimleri için private key |
+| `VAPID_SUBJECT` | VAPID yönetici e-posta adresi |
 
-```bash
-npm install
-```
-
-> Docker geliştirme akışında servisler konteyner içinde bağımlılıkları kullanır; ancak kök workspace komutları (`npm run build`, `npm run typecheck`) için yerel `node_modules` faydalıdır.
-
-### 4. Geliştirme ortamını Docker Compose ile başlatma
+### Geliştirme ortamını başlatma
 
 ```bash
 docker compose up --build --renew-anon-volumes -d
 docker compose ps
 ```
 
-`compose.override.yaml`, varsayılan olarak geliştirme servislerini ve portlarını etkinleştirir. İlk çalıştırmada imajların build edilmesi birkaç dakika sürebilir. `--renew-anon-volumes`, servislerin eski `node_modules` volume'larını kullanmasını önler; PostgreSQL verilerini tutan `postgres_data` named volume'u silmez. API derlemesi tamamlanıp healthcheck başarılı olduğunda API'ye bağlı web servisleri başlar.
+İlk derleme birkaç dakika sürebilir. API derlemesi tamamlanıp healthcheck başarılı olduğunda web servisleri başlar.
 
-Servisler arka planda çalışır; Compose tarayıcı sekmelerini otomatik açmaz. Adresler için [Yerel erişim adresleri ve portlar](#yerel-erişim-adresleri-ve-portlar) bölümüne bakın.
+Servis durumları ve loglar:
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose logs -f api
+```
 
 Sağlık kontrolü:
 
@@ -194,147 +294,34 @@ Sağlık kontrolü:
 curl http://localhost:3000/api/health
 ```
 
-Beklenen yanıt: `{"status":"ok"}`
-
-Logları izlemek için:
-
-```bash
-docker compose logs -f
-```
-
-Belirli bir servisin logları için:
-
-```bash
-docker compose logs -f api
-```
-
-### 5. İlk yönetici hesabı ve ilk giriş
-
-İki yöntemden birini kullanabilirsiniz:
-
-#### Yöntem A — Kurulum sihirbazı (önerilen, hızlı başlangıç)
-
-1. Sistemde hiç yönetici hesabı yoksa API bunu algılar.
-2. Giriş uygulamasını açın: [http://localhost:5170](http://localhost:5170)
-3. Uygulama sizi `/setup` akışına yönlendirir ve ilk **yönetici** hesabını oluşturmanızı ister.
-4. Kurulumdan sonra yönetici paneline yönlendirilirsiniz.
-
-> Bu yöntem, hesabı `config/users.json` dosyasına da kaydeder ve oturumu başlatır.
-
-#### Yöntem B — `config/users.json` üzerinden ön hazırlık
-
-1. Örnek dosyadan kullanıcı dosyasını oluşturun:
-
-   ```bash
-   cp config/users.example.json config/users.json
-   ```
-
-2. Gerekirse ilk yönetici hesabını dosyaya ekleyin (alternatif olarak Yöntem A'yı kullanın). Dosya formatı ve hash'leme işlemleri API tarafından yönetildiği için manuel düzenleme yapacaksanız uygulamanın beklediği alanlara dikkat edin.
-3. API çalıştıktan sonra veritabanı metadata senkronizasyonu için (gerekli durumlarda):
-
-   ```bash
-   docker compose exec api npm run build --workspace apps/api
-   docker compose exec api npm run provision:users --workspace apps/api
-   ```
-
-> `config/users.json` hassas bir dosyadır: Git'e eklenmez (`.gitignore`), paylaşılmamalı ve yedeklenmelidir.
-
-Sonraki öğrenci/öğretmen/yönetici hesapları yönetici panelindeki **Hesaplar** bölümünden oluşturulabilir ve güncellenebilir. Ortak giriş ekranından öğrenci kaydı yoktur.
-
-### 6. Servisleri durdurma
+Durdurma:
 
 ```bash
 docker compose down
 ```
 
-Veritabanı verileri `postgres_data` Docker volume'unda korunur.
+`docker compose down -v` kullanmayın; bu komut PostgreSQL volume'unu da siler.
 
-> **Dikkat:** `docker compose down -v` komutu volume'ları da siler ve veritabanı verilerini kalıcı olarak kaldırır.
+### Kullanıcı verisini hazırlama
 
-## Yerel erişim adresleri ve portlar
+İlk yönetici hesabı için kullanıcı dosyasını elle oluşturmak mümkün değildir. Önerilen yöntem giriş uygulamasındaki kurulum sihirbazıdır.
 
-### Geliştirme (`docker compose up`)
+Alternatif olarak örnek dosyayı kopyalayabilirsiniz:
 
-`compose.override.yaml` varsayılan olarak yüklendiği için aşağıdaki adresler kullanılır:
+```bash
+cp config/users.example.json config/users.json
+```
 
-| Servis | Adres | Açıklama |
-|---|---:|---|
-| Landing (tanıtım) | `http://localhost:5172` | Açılış/tanıtım sayfası |
-| Login (giriş/kurulum) | `http://localhost:5170` | Ortak giriş ve ilk kurulum sihirbazı |
-| Student (öğrenci) | `http://localhost:5173` | Öğrenci çalışma alanı |
-| Teacher (uzman/öğretmen) | `http://localhost:5174` | Öğretmen/uzman çalışma alanı |
-| Admin (yönetici) | `http://localhost:5175` | Yönetici paneli |
-| API sağlık kontrolü | `http://localhost:3000/api/health` | NestJS API |
+Kullanıcı dosyasıyla çalışırken kullanıcı metadata senkronizasyonu için:
 
-> Portlar `.env` içindeki `LANDING_DEV_PORT`, `LOGIN_DEV_PORT`, `STUDENT_DEV_PORT`, `TEACHER_DEV_PORT`, `ADMIN_DEV_PORT`, `API_PORT` değişkenleriyle değiştirilebilir.
+```bash
+npm run build --workspace apps/api
+npm run create:users
+```
 
-### Üretim benzeri (`compose.yaml` + `compose.prod.yaml`)
+`npm run create:users`, API ve kullanıcı dosyası yapılandırmasını kullanır. API çalışır durumda olmalıdır.
 
-| Servis | Varsayılan adres |
-|---|---:|
-| Login | `http://localhost:8080` |
-| Student | `http://localhost:8081` |
-| Teacher | `http://localhost:8082` |
-| Admin | `http://localhost:8083` |
-
-Bu modda frontend'ler Nginx üzerinden sunulur ve `/api` isteklerini API servislerine proxy'ler. PostgreSQL host'a açılmaz.
-
-## Kullanıcı rolleri ve yetkiler
-
-| Rol | Tip (`users.json`) | Temel yetenekler |
-|---|---|---|
-| Öğrenci | `student` | Yayımlanmış senaryoları görüntüleme, değerlendirme/gerekçe/yanıt kaydetme, uzmana soru sorma, sorun bildirimi oluşturma |
-| Öğretmen/Uzman | `teacher` | Yayımlanmış senaryoları inceleme, öğrenci sorularını yanıtlama, sorun bildirimi oluşturma |
-| Yönetici | `admin` | Kullanıcı ve senaryo yönetimi, öğrenci değerlendirmelerini görüntüleme, audit log ve sorun bildirimi yönetimi |
-
-Ek notlar:
-- Giriş ekranında rol seçimi yapılmaz; kullanıcı adı/parolaya göre rol belirlenir.
-- Oturumlar rol bazlı cookie'ler ile taşınır (`sakanin_student_session`, `sakanin_teacher_session`, `sakanin_admin_session`).
-- Oturum süresi 12 saattir.
-- Hesap güncelleme/silme gibi işlemler sonrası mevcut oturumların kapanması beklenen davranıştır.
-
-## Senaryo, medya ve veri yönetimi
-
-- **Taslak/Yayın:** Senaryolar taslak olarak oluşturulur; yalnızca yayımlanan senaryolar öğrencilere görünür.
-- **İçerik alanları:** Başlık, senaryo metni, bağlam, bakış açıları ve yansıtıcı sorular.
-- **Video desteği:**
-  - Harici video URL'si eklenebilir (ör. YouTube bağlantıları arayüzlerde gömülü oynatılabilir).
-  - MP4/WebM/Ogg dosyası yüklenebilir (en fazla 100 MB).
-  - Yüklenen dosyalar `scenarios/videos` altında saklanır ve bu klasör Git/Docker build bağlamı dışında tutulur.
-- **Yanıtlar:** Öğrencinin senaryo değerlendirmesi (şaka/zorbalık), gerekçesi ve yansıtıcı yanıtları saklanır.
-- **Uzman soruları:** Öğrencinin gönderdiği sorular ve uzman yanıtları ilgili rollerin erişimine göre görüntülenir.
-- **Audit log:** Hesap, oturum, içerik, senaryo görüntüleme/yanıt ve sorun bildirimi gibi olaylar kayıt altına alınır (hassas içerikler sınırlı tutulur).
-
-## Ortam değişkenleri
-
-| Değişken | Varsayılan / örnek | Açıklama |
-|---|---|---|
-| `POSTGRES_USER` | `sakanin` | PostgreSQL kullanıcı adı |
-| `POSTGRES_PASSWORD` | *(zorunlu)* | PostgreSQL parolası |
-| `POSTGRES_DB` | `sakanin` | PostgreSQL veritabanı adı |
-| `DATABASE_URL` | `postgresql://...@db:5432/...` | API'nin PostgreSQL bağlantı dizesi |
-| `API_PORT` | `3000` | Geliştirmede API host portu |
-| `LANDING_DEV_PORT` | `5172` | Geliştirmede landing portu |
-| `LOGIN_DEV_PORT` | `5170` | Geliştirmede giriş uygulaması portu |
-| `STUDENT_DEV_PORT` | `5173` | Geliştirmede öğrenci uygulaması portu |
-| `TEACHER_DEV_PORT` | `5174` | Geliştirmede öğretmen uygulaması portu |
-| `ADMIN_DEV_PORT` | `5175` | Geliştirmede yönetici uygulaması portu |
-| `LOGIN_PROD_PORT` | `8080` | Üretim benzeri login host portu |
-| `STUDENT_PROD_PORT` | `8081` | Üretim benzeri öğrenci host portu |
-| `TEACHER_PROD_PORT` | `8082` | Üretim benzeri öğretmen host portu |
-| `ADMIN_PROD_PORT` | `8083` | Üretim benzeri yönetici host portu |
-| `WEB_ORIGINS` | Compose varsayılanları | API CORS izinli origin listesi (virgülle ayrılmış) |
-| `LOGIN_APP_URL` | Ortam/porttan türetilir | Giriş uygulaması URL'i (yönlendirme ve frontend build argümanı) |
-| `STUDENT_APP_URL` | Ortam/porttan türetilir | Öğrenci uygulaması URL'i |
-| `TEACHER_APP_URL` | Ortam/porttan türetilir | Öğretmen uygulaması URL'i |
-| `ADMIN_APP_URL` | Ortam/porttan türetilir | Yönetici uygulaması URL'i |
-| `SESSION_COOKIE_DOMAIN` | boş | Farklı alt alan adlarında oturum paylaşımı için cookie domain'i |
-| `USERS_FILE` | `config/users.json` (compose mount) | API'nin kullanıcı dosyası yolu (genelde compose tarafından ayarlanır) |
-| `MEDIA_DIRECTORY` | `scenarios/videos` (compose mount) | Yüklenen senaryo videolarının saklandığı dizin |
-
-## Faydalı komutlar
-
-### Kök (workspace) komutları
+### Kök ve workspace komutları
 
 ```bash
 # Tüm workspace'leri derle
@@ -343,117 +330,102 @@ npm run build
 # Tüm workspace'lerde TypeScript kontrolü
 npm run typecheck
 
-# Kullanıcı metadata senkronizasyonu (API build + provision script)
+# Kullanıcı metadata senkronizasyonu
 npm run create:users
-```
 
-> `npm run create:users` komutu kökte `docker compose exec api ...` kullandığı için Docker servislerinin çalışıyor olması gerekir.
-
-### Tekil workspace komutları
-
-```bash
-# API build
+# Tekil workspace build
 npm run build --workspace apps/api
-
-# Belirli frontend build
+npm run build --workspace apps/landing-web
 npm run build --workspace apps/student-web
 npm run build --workspace apps/teacher-web
 npm run build --workspace apps/admin-web
-npm run build --workspace apps/landing-web
 ```
 
-### Docker Compose komutları
+Tekil API tip kontrolü:
 
 ```bash
-# Geliştirme ortamını başlat
-docker compose up --build --renew-anon-volumes -d
-
-# Servis durumunu görüntüle
-docker compose ps
-
-# Logları izle
-docker compose logs -f
-
-# Tek servisi yeniden oluştur/başlat
-docker compose up --build --renew-anon-volumes -d api
-
-# Durdur (veriler korunur)
-docker compose down
+npm run typecheck --workspace apps/api
 ```
 
-## Üretim benzeri yerel çalışma
-
-Üretim benzeri yerel doğrulama için:
+### Üretim benzeri yerel çalışma
 
 ```bash
 docker compose -f compose.yaml -f compose.prod.yaml up --build -d
 ```
 
 Bu modda:
-- Frontend uygulamaları Nginx imajlarıyla sunulur.
-- Login/Student/Teacher/Admin portları host'a açılır (varsayılan `8080-8083`).
-- PostgreSQL yalnızca Docker ağı içinde erişilebilir (`data` ağı, host port yok).
-- API `app` ve `data` ağlarına bağlıdır.
 
-Durdurmak için:
+- Frontend uygulamaları Nginx ile sunulur.
+- `/api` istekleri API servisine proxy'lenir.
+- Login/Student/Teacher/Admin uygulamaları varsayılan olarak `8080-8083` portlarında açılır.
+- PostgreSQL yalnızca Docker ağı içindedir ve host'a yayınlanmaz.
+
+Durdurma:
 
 ```bash
 docker compose -f compose.yaml -f compose.prod.yaml down
 ```
 
-## Veri kalıcılığı ve yedekleme notları
+### Veriler ve kalıcılık
 
-- **PostgreSQL verileri:** `postgres_data` Docker volume'unda saklanır.
-- **Kullanıcı hesapları:** `config/users.json` dosyasında saklanır ve `./config` dizini konteynere mount edilir.
-- **Yüklenen senaryo videoları:** `scenarios/videos` dizininde saklanır ve konteynere mount edilir.
+- PostgreSQL verileri `postgres_data` Docker volume'unda saklanır.
+- Kullanıcı hesapları `config/users.json` dosyasındadır.
+- Yüklenen senaryo videoları `scenarios/videos` dizinindedir.
+- Dosya tabanlı kullanıcı verilerini yedeklemek için scrypt parola hash'i içeren dosyanın korunması gerekir.
+- PostgreSQL yedeğini, kullanıcı dosyasını ve medya dizinini birlikte yedekleyin.
 
-Yedekleme planı yaparken en az şu öğeleri dahil edin:
-- PostgreSQL volume yedeği (veya mantıksal dump)
-- `config/users.json`
-- `scenarios/videos` içeriği
+Mantıksal PostgreSQL yedeği için örnek:
 
-## Sorun giderme
+```bash
+docker compose exec -T db pg_dump -U sakanin sakanin > backup.sql
+```
 
-- **`POSTGRES_PASSWORD` / `DATABASE_URL` hatası:** `.env` dosyasını oluşturduğunuzdan ve zorunlu değişkenleri tanımladığınızdan emin olun.
-- **API başlamıyor / `users.json` hataları:** `config/users.json` dosyasının geçerli JSON olduğundan ve beklenen kullanıcı alanlarını içerdiğinden emin olun. Bozuk dosya yerine Yöntem A (kurulum sihirbazı) ile yeniden başlamak daha kolay olabilir.
-- **Web konteynerleri `Created` durumunda veya API `unhealthy` görünüyor:** `docker compose ps` ve `docker compose logs --tail=100 api` ile durumu inceleyin. Geliştirme API'sinin ilk derlemesi zaman alabilir; healthcheck ilk 120 saniye boyunca derleme için başlangıç toleransı tanır ve Compose web servislerini API sağlıklı olana kadar bekletir. Bağımlılıkları güncel imaj ve yeni anonim volume'larla başlatmak için `docker compose up --build --renew-anon-volumes -d` çalıştırın. `docker compose down -v` kullanmayın; veritabanı volume'unu da siler.
-- **Port çakışması:** `.env` içindeki port değişkenlerini değiştirip servisleri yeniden başlatın (`docker compose up --build -d`).
-- **Girişten sonra yanlış adrese yönlendirme:** `LOGIN_APP_URL`, `STUDENT_APP_URL`, `TEACHER_APP_URL`, `ADMIN_APP_URL` değerlerinin kullandığınız host/portlarla uyumlu olduğunu kontrol edin.
-- **Video yükleme sorunu:** Dosya türünün MP4/WebM/Ogg ve boyutunun 100 MB sınırı içinde olduğundan emin olun.
-- **Windows/WSL performansı:** Depoyu mümkünse WSL dosya sisteminde (`/home/...`) çalıştırın; `/mnt/c` altında bind mount performansı düşük olabilir.
+### Web Push yapılandırması
 
-## Güvenlik ve gizlilik notları
-
-- `.env`, `config/users.json`, loglar ve yüklenen senaryo videoları Git tarafından izlenmez.
-- Oturum çerezi giriş/kurulum sırasında sunucuda rastgele üretilir; tarayıcıya `HttpOnly` olarak gönderilir ve üretimde `Secure` işaretlenir. Veritabanında çerezin kendisi değil, yalnızca token özeti saklanır. Çerez/token değerlerini kaynak koda, `.env` dosyasına veya GitHub'a koymayın.
-- `.env.example` yalnızca örnek/boş değerler içermelidir. Gerçek veritabanı parolası, VAPID private key'i veya başka gizli değerleri bu dosyaya yazmayın.
-- Parolalar `config/users.json` içinde scrypt hash olarak saklanır; düz metin parola saklanmaz.
-- API veritabanında parola hash'i tutmaz; oturum ve kullanıcı metadata kayıtlarını yönetir.
-- Öğrenci yanıtları ve soruları rol/yetki kontrolleri ile sınırlandırılır.
-- PostgreSQL, Compose yapılandırmasında host'a yayınlanmaz (izole ağ kullanılır).
-- Gerçek üretim dağıtımı (alan adı, DNS, TLS/SSL sonlandırma, ters vekil, gizli yönetimi, yedekleme otomasyonu vb.) bu depo içinde tamamlanmış değildir; canlı ortama taşımadan önce bu başlıklar ayrıca planlanmalıdır.
-- Proje kapsamı ve faz durumu için `tasks.md` dosyasına bakabilirsiniz.
-
-## Bildirimler ve Web Push yapılandırması
-
-Bildirim kayıtları API ilk açılışında PostgreSQL üzerinde otomatik oluşturulur ve gerekli index/FK tanımları aynı şema başlangıç adımında uygulanır. In-app bildirimleri ve SSE gerçek zamanlı akışı VAPID anahtarları olmadan da çalışır.
-
-Tarayıcı push için `.env` dosyasına VAPID anahtarlarını ekleyin. Bir çift anahtarı proje kökünde üretin:
+Bir VAPID anahtar çifti üretin:
 
 ```bash
 npx web-push generate-vapid-keys
 ```
 
-Komut çıktısındaki public/private değerlerini `VAPID_PUBLIC_KEY` ve `VAPID_PRIVATE_KEY` değişkenlerine; `VAPID_SUBJECT` değerini size ulaşılabilecek `mailto:` adresine koyun. `.env.example` şablon olarak kullanılabilir. Private key'i yalnızca API ortamında tutun; hiçbir `VITE_` değişkenine veya frontend dosyasına eklemeyin.
+Çıktıdaki public/private anahtarları `.env` dosyasına yazın ve `VAPID_SUBJECT` için size ulaşılabilecek bir `mailto:` adresi kullanın.
 
-Değişkenleri güncelledikten sonra yeni ortam değerlerini çalışan konteynere aktarmak için API'yi yeniden oluşturun. Yalnızca `.env` değiştiyse yeniden build gerekmez:
+Sadece private key'i API ortamında tutun. `VITE_` değişkenlerine veya frontend dosyalarına private key eklemeyin.
+
+Değerleri güncelledikten sonra API'yi yeniden oluşturun:
 
 ```bash
 docker compose up -d --force-recreate api
 ```
 
-İzin penceresinde **“Sunucuda VAPID anahtarları yapılandırılmamış.”** mesajı görünüyorsa public/private anahtarlarının ikisini de `.env` dosyasına ekleyin, API konteynerini bu komutla yeniden oluşturun ve uygulamayı yenileyip **Bildirimleri Etkinleştir** düğmesine tekrar basın. `.env` dosyasını Git'e eklemeyin; özellikle private key'i paylaşmayın.
+Bildirim API uçları:
 
-Web Push yalnızca HTTPS güvenli bağlamlarında çalışır (localhost geliştirme istisnası). Üretimde TLS, her rol uygulamasında root kapsamlı `/service-worker.js` ve `/icon.png` dosyalarının sunulması gerekir. Bildirim izni kullanıcı düğmesine basmadan istenmez. Veritabanında push aboneliği cihaz bazında saklanır; push kapatma yalnızca mevcut cihazın aboneliğini siler. Push sağlayıcılarının erişilemediği durumda kalıcı in-app bildirimler kullanılmaya devam eder.
+- `GET /api/notifications`
+- `GET /api/notifications/unread-count`
+- `GET /api/notifications/events`
+- `/api/notifications/push/*`
+- Okunmuş/silinmiş bildirim işlemleri
 
-Bildirim API yolları: `GET /api/notifications`, `GET /api/notifications/unread-count`, okundu/silme işlemleri, cihaz bazlı `/api/notifications/push/*` uçları ve kimlik doğrulamalı `GET /api/notifications/events` SSE akışı.
+Bildirim kayıtları ve gerekli PostgreSQL indeksleri API ilk açılışında oluşturulur.
+
+### Sorun giderme
+
+- **Zorunlu PostgreSQL değişkeni hatası:** `.env` dosyasını oluşturduğunuzdan ve `POSTGRES_PASSWORD` ile `DATABASE_URL` değerlerini ayarladığınızdan emin olun.
+- **API başlayamıyor:** `docker compose logs --tail=100 api` ile hata kaydını inceleyin.
+- **`users.json` hatası:** Dosyanın geçerli JSON olduğundan emin olun veya kurulum sihirbazını kullanarak yeni bir ilk yönetici hesabı oluşturun.
+- **Web servisleri `Created` durumunda:** `docker compose ps` ve API loglarını kontrol edin. Geliştirme API'si ilk derleme sırasında hazırlanabilir.
+- **Eski bağımlılık veya volume sorunu:** `docker compose up --build --renew-anon-volumes -d` komutunu kullanın.
+- **Port çakışması:** `.env` içindeki ilgili port değerlerini değiştirip Compose'u yeniden başlatın.
+- **Yanlış yönlendirme:** `LOGIN_APP_URL`, `STUDENT_APP_URL`, `TEACHER_APP_URL` ve `ADMIN_APP_URL` değerlerinin kullandığınız host/portlarla uyumlu olduğunu doğrulayın.
+- **Windows/WSL performansı:** Depoyu mümkünse WSL dosya sisteminde çalıştırın; Windows bind mount performansı daha düşük olabilir.
+
+### Güvenlik notları
+
+- `.env`, `config/users.json`, loglar ve yüklenen videolar Git'e eklenmemelidir.
+- Oturumlar HTTP-only cookie olarak taşınır; üretimde cookie `Secure` olarak işaretlenir.
+- Oturum token'inin kendisi yerine veritabanında yalnızca token özeti saklanır.
+- Oturum süresi 12 saattir.
+- Parolalar `config/users.json` içinde düz metin değil scrypt hash olarak saklanır.
+- Öğrenci yanıtları ve soruları API'deki rol/yetki kontrolleriyle sınırlandırılır.
+- PostgreSQL Compose yapılandırmasında host'a yayımlanmaz.
+- Gerçek üretim dağıtımı için DNS, TLS/SSL sonlandırma, ters vekil, gizli yönetimi, yedekleme otomasyonu ve izleme ayrıca planlanmalıdır.

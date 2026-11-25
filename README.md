@@ -27,20 +27,20 @@ Temel kullanım akışları:
 | Öğretmen/Uzman | `5174` geliştirme / `8082` üretim benzeri | Yayımlanmış senaryoları inceleme, öğrenci sorularını yanıtlama, sorun bildirme |
 | Yönetici | `5175` geliştirme / `8083` üretim benzeri | Hesap ve senaryo yönetimi, öğrenci değerlendirmelerini inceleme, bildirim ve hareket kayıtlarını takip etme |
 
-Giriş ekranında ayrıca rol seçimi yapılmaz. Kullanıcı adı ve parola kullanıcı rolünü belirler; girişten sonra ilgili panel otomatik olarak açılır.
+Giriş ekranında ayrıca rol seçimi yapılmaz. Kullanıcı adı veya e-posta ve parola ile giriş yapılır; rol `profiles` kaydından okunur ve ilgili panel otomatik olarak açılır.
 
 ### Uygulamaya erişim
 
-Docker Compose ortamı çalıştırıldıktan sonra geliştirme adresleri:
+Birleşik Vite uygulaması için geliştirme adresi:
 
 | Bölüm | Adres |
 |---|---|
-| Tanıtım sayfası | <http://localhost:5172> |
-| Ortak giriş ve ilk kurulum | <http://localhost:5170> |
-| Öğrenci paneli | <http://localhost:5173> |
-| Öğretmen/Uzman paneli | <http://localhost:5174> |
-| Yönetici paneli | <http://localhost:5175> |
-| API sağlık kontrolü | <http://localhost:3000/api/health> |
+| Tek React uygulaması | <http://localhost:5172> |
+| Tanıtım sayfası | <http://localhost:5172/> |
+| Ortak giriş | <http://localhost:5172/login> |
+| Öğrenci paneli | <http://localhost:5172/ogrenci> |
+| Uzman paneli | <http://localhost:5172/uzman> |
+| Yönetici paneli | <http://localhost:5172/admin> |
 
 Beklenen sağlık kontrolü yanıtı:
 
@@ -48,24 +48,9 @@ Beklenen sağlık kontrolü yanıtı:
 {"status":"ok"}
 ```
 
-Üretim benzeri yerel adresler varsayılan olarak:
-
-| Bölüm | Adres |
-|---|---|
-| Giriş | <http://localhost:8080> |
-| Öğrenci | <http://localhost:8081> |
-| Öğretmen/Uzman | <http://localhost:8082> |
-| Yönetici | <http://localhost:8083> |
-
 ### İlk yönetici hesabını oluşturma
 
-İlk kurulum, sistemde henüz yönetici hesabı yoksa giriş uygulamasında otomatik olarak açılır.
-
-1. Giriş uygulamasını açın: <http://localhost:5170>
-2. `/setup` akışındaki kullanıcı adı ve parola alanlarını doldurun.
-3. İlk yönetici hesabını oluşturduktan sonra uygulama sizi yönetici paneline yönlendirir.
-
-Kurulum, hesap bilgilerini `config/users.json` dosyasına kaydeder ve oturum başlatır. Sonraki öğrenci, öğretmen/uzman ve yönetici hesapları yönetici panelinin **Hesaplar** bölümünden oluşturulabilir.
+İlk yönetici Auth kullanıcısını Supabase Dashboard > Authentication > Users bölümünden oluşturun. Ardından SQL Editor'da o kullanıcının profilini yönetici yapın. Bu ilk kurulum dışında istemci üzerinden rol yükseltme yapılmamalıdır. Sonraki öğrenci, uzman ve yönetici hesapları yönetici panelinin **Hesaplar** bölümünden oluşturulabilir.
 
 ### Senaryolar ve videolar
 
@@ -78,9 +63,9 @@ Kurulum, hesap bilgilerini `config/users.json` dosyasına kaydeder ve oturum ba�
 
 ### Bildirimler
 
-- Uygulama içi bildirimler kullanılabilir.
+- Uygulama içi bildirimler Supabase Realtime ile çalışır.
 - Bildirim merkezinden okunmuş bildirimler işaretlenebilir ve bildirimler silinebilir.
-- VAPID anahtarları yapılandırılmışsa tarayıcı masaüstü bildirimleri kullanılabilir.
+- Tarayıcı abonelik kaydı arayüzü mevcut olsa da sunucu tarafı Web Push gönderimi henüz etkin değildir.
 - Bildirim izni yalnızca kullanıcı bildirim düğmesine bastığında istenir.
 - Web Push desteği HTTPS gerektirir; yerel geliştirmede `localhost` desteklenen istisnadır.
 
@@ -88,9 +73,8 @@ Kurulum, hesap bilgilerini `config/users.json` dosyasına kaydeder ve oturum ba�
 
 - **Yanlış panele yönlendirme:** Oturum açtıktan sonra kullanıcıya ait rolün doğru olduğundan emin olun.
 - **Giriş yapılamaması:** Kullanıcı adını, parolayı ve hesabın yönetici tarafından aktif tutulduğunu kontrol edin.
-- **Port çakışması:** `.env` içindeki geliştirme veya üretim benzeri port değerlerini değiştirin.
 - **Video yüklenmiyor:** Dosya türünün MP4, WebM veya Ogg ve boyutunun 100 MB sınırında olduğundan emin olun.
-- **Bildirim ayarı görünmüyor veya devre dışı:** Tarayıcı bildirim iznini ve API'nin VAPID yapılandırmasını kontrol edin.
+- **Supabase bağlantı hatası:** `.env` ve Netlify ortamında public Supabase URL/key değerlerini kontrol edin; migration'ların projeye uygulandığından emin olun.
 
 ## Geliştiriciler İçin
 
@@ -123,31 +107,20 @@ Bu depo, ayrı frontend uygulamalarını, bir NestJS API'yi ve PostgreSQL verita
 
 | Bileşen | Teknoloji | Sorumluluk |
 |---|---|---|
-| `apps/landing-web` | React 19, Vite, TypeScript, React Router, Supabase Auth | Tanıtım sayfası, e-posta/şifre girişi ve role göre korunan öğrenci/uzman/admin rotaları |
-| `apps/student-web` | React 19, Vite, TypeScript | Ortak giriş kurulum akışı ve öğrenci arayüzü |
-| `apps/teacher-web` | React 19, Vite, TypeScript | Senaryo inceleme ve öğrenci sorularını yanıtlama |
-| `apps/admin-web` | React 19, Vite, TypeScript | Hesap, senaryo, değerlendirme, audit ve bildirim yönetimi |
-| `apps/api` | NestJS 11, Node.js, TypeScript | Kimlik doğrulama, yetkilendirme ve iş mantığı |
-| PostgreSQL | PostgreSQL 17 | Oturum, senaryo, değerlendirme, bildirim ve audit verileri |
-
-API modül grupları: `auth`, `admin`, `scenarios`, `expert-questions`, `problem-reports`, `notifications`, `audit` ve `health`.
+| `apps/landing-web` | React 19, Vite, TypeScript, React Router, Supabase | Tek SPA, ortak giriş ve bütün rol rotaları |
+| `apps/student-web` | React 19, Vite, TypeScript | Tek SPA içinde kullanılan mevcut öğrenci arayüz bileşenleri |
+| `apps/teacher-web` | React 19, Vite, TypeScript | Tek SPA içinde kullanılan mevcut uzman arayüz bileşenleri |
+| `apps/admin-web` | React 19, Vite, TypeScript | Tek SPA içinde kullanılan mevcut yönetici arayüz bileşenleri |
+| `supabase/` | PostgreSQL, Auth, Storage, Edge Functions | Veritabanı, kullanıcı rolleri, video saklama ve güvenli yönetici işlemleri |
+| `apps/api` | NestJS (eski) | Taşıma sürecindeki önceki API; Netlify SPA tarafından kullanılmaz |
 
 ### Gereksinimler
 
 - Node.js 22 veya üzeri
 - npm
-- Docker Desktop veya Docker Engine
-- Docker Compose v2 (`docker compose`)
 - Git
 
-Docker tabanlı çalışma önerilen akıştır. Windows için Docker Desktop, Linux için Docker Engine ve Compose eklentisinin kurulu olması gerekir.
-
-### Kurulum aşamaları
-
-#### Linux
-
-1. Docker Engine, Docker Compose ve Git'i işletim sisteminizin paket yöneticisiyle kurun.
-2. Projeyi terminalde klonlayın:
+### Kurulum ve yerel geliştirme
 
 ```bash
 git clone <repo-url>
@@ -155,127 +128,28 @@ cd sakanin-sinirinda-chatbox
 npm install
 ```
 
-3. Ortam dosyasını oluşturun:
-
-```bash
-cp .env.example .env
-```
-
-4. Docker servislerini başlatın:
-
-```bash
-docker compose up --build --renew-anon-volumes -d
-docker compose ps
-```
-
-İhtiyaç halinde mevcut kullanıcının Docker grubuna eklenmesi gerekebilir:
-
-```bash
-sudo usermod -aG docker "$USER"
-newgrp docker
-```
-
-Bu komutlardan sonra oturumu yeniden başlatmak da gerekebilir.
-
-#### Windows
-
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) uygulamasını kurun.
-2. Docker Desktop ayarlarından **WSL 2 based engine** seçeneğini etkinleştirin.
-3. Windows'ta Git'i ve Node.js 22 veya üzeri sürümü kurun.
-4. PowerShell veya WSL terminalinde depoyu klonlayın:
-
-PowerShell:
+`.env.example` dosyasını `.env` olarak kopyalayıp Supabase URL ve public anon key değerlerini girin. PowerShell'de:
 
 ```powershell
-git clone <repo-url>
-cd sakanin-sinirinda-chatbox
-npm install
 Copy-Item .env.example .env
+npm run dev --workspace apps/landing-web
 ```
 
-WSL:
-
-```bash
-git clone <repo-url>
-cd sakanin-sinirinda-chatbox
-npm install
-cp .env.example .env
-```
-
-Windows performansı için projeyi `/mnt/c` yerine WSL dosya sisteminde, örneğin `~/projeler/sakanin-sinirinda-chatbox` altında tutun.
-
-5. Docker Desktop'ın çalıştığından emin olun ve PowerShell veya WSL terminalinden `.env` dosyasını kullanarak servisleri başlatın:
-
-```bash
-docker compose up --build --renew-anon-volumes -d
-docker compose ps
-```
-
-PowerShell'den çalıştırıyorsanız komutun olduğu dizin Windows proje dizini olmalıdır.
+Diğer işletim sistemlerinde `.env` kopyalama komutu `cp .env.example .env` olabilir. Vite uygulaması `http://localhost:5172` üzerinde tek SPA olarak çalışır.
 
 ### Ortam değişkenleri
 
 Linux ve Windows kurulumlarında proje kökünde bulunan `.env.example` dosyasından oluşturulan `.env` dosyası aynı değişkenleri kullanır.
 
-Minimum yerel yapılandırma:
+Tek React uygulamasını çalıştırmak için gereken ayarlar:
 
 ```env
-POSTGRES_USER=sakanin
-POSTGRES_PASSWORD=change-me-local-only
-POSTGRES_DB=sakanin
-DATABASE_URL=postgresql://sakanin:change-me-local-only@db:5432/sakanin
-
-API_PORT=3000
-LANDING_DEV_PORT=5172
-LOGIN_DEV_PORT=5170
-STUDENT_DEV_PORT=5173
-TEACHER_DEV_PORT=5174
-ADMIN_DEV_PORT=5175
-
-SESSION_COOKIE_DOMAIN=
-
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@example.com
-
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_VAPID_PUBLIC_KEY=
 ```
 
-`POSTGRES_PASSWORD` ile `DATABASE_URL` içindeki parolanın aynı olması gerekir. `.env` dosyasını Git'e eklemeyin.
-Birleşik landing uygulamasındaki Supabase girişi için proje URL'sini ve yalnızca public anon/publishable anahtarını tanımlayın. Bu `VITE_` değerleri frontend derlemesine eklenir; Supabase `service_role` anahtarını frontend'e koymayın.
-
-Temel değişkenler:
-
-| Değişken | Varsayılan / açıklama |
-|---|---|
-| `POSTGRES_USER` | PostgreSQL kullanıcı adı; varsayılan `sakanin` |
-| `POSTGRES_PASSWORD` | PostgreSQL parolası; zorunlu |
-| `POSTGRES_DB` | PostgreSQL veritabanı adı; varsayılan `sakanin` |
-| `DATABASE_URL` | API'nin PostgreSQL bağlantı dizesi |
-| `API_PORT` | Geliştirmede API host portu; varsayılan `3000` |
-| `LANDING_DEV_PORT` | Geliştirme landing portu; varsayılan `5172` |
-| `LOGIN_DEV_PORT` | Geliştirme giriş portu; varsayılan `5170` |
-| `STUDENT_DEV_PORT` | Geliştirme öğrenci portu; varsayılan `5173` |
-| `TEACHER_DEV_PORT` | Geliştirme öğretmen/uzman portu; varsayılan `5174` |
-| `ADMIN_DEV_PORT` | Geliştirme yönetici portu; varsayılan `5175` |
-| `LOGIN_PROD_PORT` | Üretim benzeri giriş portu; varsayılan `8080` |
-| `STUDENT_PROD_PORT` | Üretim benzeri öğrenci portu; varsayılan `8081` |
-| `TEACHER_PROD_PORT` | Üretim benzeri öğretmen/uzman portu; varsayılan `8082` |
-| `ADMIN_PROD_PORT` | Üretim benzeri yönetici portu; varsayılan `8083` |
-| `WEB_ORIGINS` | API CORS origin listesi |
-| `LOGIN_APP_URL` | Giriş uygulamasının yönlendirme URL'i |
-| `STUDENT_APP_URL` | Öğrenci uygulamasının yönlendirme URL'i |
-| `TEACHER_APP_URL` | Öğretmen/uzman uygulamasının yönlendirme URL'i |
-| `ADMIN_APP_URL` | Yönetici uygulamasının yönlendirme URL'i |
-| `SESSION_COOKIE_DOMAIN` | Çoklu alt alan adı için cookie domain'i |
-| `USERS_FILE` | Kullanıcı JSON dosyasının API içindeki yolu |
-| `MEDIA_DIRECTORY` | Yüklenen videoların API içindeki dizini |
-| `VAPID_PUBLIC_KEY` | Tarayıcı push bildirimleri için public key |
-| `VAPID_PRIVATE_KEY` | Tarayıcı push bildirimleri için private key |
-| `VAPID_SUBJECT` | VAPID yönetici e-posta adresi |
-| `VITE_SUPABASE_URL` | Landing uygulamasının Supabase proje URL'si |
-| `VITE_SUPABASE_ANON_KEY` | Tarayıcıda kullanılmak üzere Supabase public anon/publishable anahtarı |
+`.env` dosyasını Git'e eklemeyin. Frontend'e yalnızca Supabase public anon/publishable anahtarını verin; `service_role` anahtarı yalnızca Supabase Edge Functions ortamında kalmalıdır. Eski Docker Compose API ayarları bu SPA kurulumu için kullanılmaz.
 
 ### Tek uygulamada rol rotaları ve Supabase
 
@@ -284,31 +158,36 @@ Temel değişkenler:
 | Rota | Erişim |
 |---|---|
 | `/` | Tanıtım sayfası |
-| `/login` | Supabase Auth e-posta/şifre girişi |
-| `/student` | `student` rolü |
-| `/expert` | `expert` rolü |
+| `/login` | Supabase Auth kullanıcı adı/e-posta ve parola girişi |
+| `/ogrenci` | `student` rolü |
+| `/uzman` | `expert` rolü |
 | `/admin` | `admin` rolü |
 
-Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profiles.id` kaydındaki `role` alanını okur. Supabase SQL Editor'da rol tablosunu ve yalnızca kullanıcının kendi rolünü okumasına izin veren politikayı kurun:
+Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profiles.id` kaydındaki `role` alanını okur. Tablo ve RLS politikaları için proje kökündeki SQL migration'larını Supabase CLI ile uygulayın:
 
-```sql
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  role text not null check (role in ('student', 'expert', 'admin'))
-);
-
-alter table public.profiles enable row level security;
-
-create policy "Users can read their own role"
-  on public.profiles
-  for select
-  to authenticated
-  using ((select auth.uid()) = id);
+```bash
+supabase link --project-ref <project-ref>
+supabase db push
+supabase functions deploy admin-users
 ```
 
-Kullanıcılar ve roller güvenilir bir yönetici/servis işlemiyle oluşturulmalıdır; istemciden rol yazma politikası açmayın. Rota koruması arayüz erişimini sınırlar; veriye erişen her backend/API işlemi ayrıca yetki kontrolü ve RLS ile korunmalıdır. Yerel Vite çalıştırmasında kök `.env` dosyası okunur; Docker Compose'da da aynı iki değer landing frontend build argümanlarına aktarılır. Değerleri değiştirdikten sonra frontend'i yeniden başlatın veya yeniden derleyin.
+İlk Auth kullanıcısını oluşturduktan sonra SQL Editor'da kimliğini kontrol edip tek seferlik yükseltin:
+
+```sql
+update public.profiles set role = 'admin' where id = '<auth-user-uuid>';
+```
+
+Yönetici panelinden açılan kullanıcılar Supabase Auth'ta dahili `.invalid` e-posta takma adıyla oluşturulur ve kullanıcı adıyla giriş yapar. Gerçek e-posta ile oluşturulmuş hesaplar e-posta adresiyle giriş yapabilir. `contact_email` alanı ileride kişisel e-posta eklenmesine zemin sağlar; e-posta tabanlı ikinci faktör henüz etkin değildir. Öğrenciler için Cloudflare Zero Trust gerekmez; Supabase Auth ve RLS erişim sınırları kullanılır.
+
+Yerel Vite çalıştırmasında kök `.env` dosyasında `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ve gerekiyorsa `VITE_VAPID_PUBLIC_KEY` tanımlayın. `service_role` anahtarını yalnız Supabase Edge Function secret olarak saklayın; frontend'e koymayın.
+
+### Netlify dağıtımı
+
+Netlify deposu proje köküne bağlandığında `netlify.toml` tek `apps/landing-web` derlemesini yapılandırır. Netlify ortam değişkenlerinde `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlayın. SPA yönlendirmesi derin bağlantıları sağlar. Supabase migration'larını ve `admin-users` Edge Function'ını dağıtımdan önce uygulayın. Yönetici kullanıcı işlemi için Supabase Edge Functions'ın varsayılan `SUPABASE_SERVICE_ROLE_KEY` secret'ı kullanılır; bu anahtarı Netlify'a eklemeyin.
 
 ### Geliştirme ortamını başlatma
+
+> Aşağıdaki Docker Compose, PostgreSQL, NestJS API ve `config/users.json` bölümleri önceki çoklu uygulama kurulumuna aittir. Netlify'daki tek SPA ve Supabase kurulumu için kullanılmaz; güncel akış için yukarıdaki Supabase/Netlify bölümlerini izleyin.
 
 ```bash
 docker compose up --build --renew-anon-volumes -d

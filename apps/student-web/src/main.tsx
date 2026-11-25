@@ -1,8 +1,10 @@
-import { StrictMode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PressableButton } from './PressableButton';
 import { NotificationCenter } from '../../shared/NotificationCenter';
+import { useAuth } from '../../landing-web/src/auth/AuthContext';
+import { supabaseRequest } from '../../landing-web/src/supabaseApi';
 import './style.css';
 
 type User = {
@@ -57,10 +59,6 @@ type ExpertQuestion = {
   answeredAt: string | null;
 };
 
-type ApiFailure = {
-  message?: string | string[];
-};
-
 class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -70,9 +68,6 @@ class ApiRequestError extends Error {
   }
 }
 
-const API_BASE = import.meta.env.DEV
-  ? '/api'
-  : import.meta.env.VITE_API_BASE_URL || '/api';
 const LOGIN_APP_URL =
   import.meta.env.VITE_LOGIN_APP_URL ||
   (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
@@ -111,34 +106,28 @@ function getAppUrl(role: User['role']): string {
 }
 
 async function request<T>(path: string, body?: object, method?: 'POST' | 'PATCH'): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: method ?? (body ? 'POST' : 'GET'),
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const payload = (await response.json().catch(() => ({}))) as T & ApiFailure;
-  if (!response.ok) {
-    const message = Array.isArray(payload.message)
-      ? payload.message.join(' ')
-      : payload.message;
+  try {
+    return await supabaseRequest<T>(
+      path,
+      body as Record<string, unknown> | undefined,
+      method ?? (body ? 'POST' : 'GET'),
+    );
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'İstek başarısız oldu.';
     lastApiError = {
-      status: response.status,
-      message: message || `İstek başarısız oldu (${response.status}).`,
+      status: 400,
+      message,
       at: new Date().toISOString(),
     };
-    throw new ApiRequestError(
-      message || `İstek başarısız oldu (${response.status}).`,
-      response.status,
-    );
+    throw new ApiRequestError(message, 400);
   }
-  return payload;
 }
 
 // Rapor penceresinin otomatik ekleyeceği son API hatası (10 dakika içindekiler).
 let lastApiError: { status: number; message: string; at: string } | null = null;
 
-function StudentApp() {
+export function StudentApp() {
+  const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [activePage, setActivePage] = useState<'scenarios' | 'expert'>('scenarios');
   const [username, setUsername] = useState('');
@@ -197,58 +186,22 @@ function StudentApp() {
   }, []);
 
   useEffect(() => {
-    const roles: User['role'][] = ['student', 'teacher', 'admin'];
-    void (async () => {
-      try {
-        const status = await request<{ needsSetup: boolean }>('/auth/setup-status');
-        if (status.needsSetup) {
-          if (!isLoginApp()) {
-            window.location.replace(`${getLoginAppUrl()}/setup`);
-            return;
-          }
-          setNeedsSetup(true);
-          if (window.location.pathname !== '/setup') {
-            window.history.replaceState(null, '', '/setup');
-          }
-          return;
-        }
-        const users = await Promise.all(
-          roles.map(async (role) => {
-            try {
-              return await request<User>(`/auth/me?role=${role}`);
-            } catch (cause: unknown) {
-              if (isUnauthorized(cause)) return null;
-              throw cause;
-            }
-          }),
-        );
-        const currentUser = users.find((candidate) => candidate !== null);
-        if (!currentUser) {
-          if (!isLoginApp()) {
-            window.location.replace(`${getLoginAppUrl()}/login`);
-          }
-          return;
-        }
-        if (currentUser.role === 'student') {
-          if (isLoginApp()) {
-            window.location.replace(getAppUrl('student'));
-            return;
-          }
-          setUser(currentUser);
-          if (!currentUser.tutorialCompleted) {
-            setTutorialStep(0);
-            setSidebarOpen(window.matchMedia('(max-width: 760px)').matches);
-          }
-        } else {
-          window.location.replace(getAppUrl(currentUser.role));
-        }
-      } catch (cause: unknown) {
-        setError(errorMessage(cause));
-      } finally {
-        setLoading(false);
+    if (authLoading) return;
+    if (authSession && profile && authRole === 'student') {
+      const currentUser: User = {
+        id: profile.id,
+        username: profile.username,
+        role: 'student',
+        tutorialCompleted: profile.tutorialCompleted,
+      };
+      setUser(currentUser);
+      if (!currentUser.tutorialCompleted) {
+        setTutorialStep(0);
+        setSidebarOpen(window.matchMedia('(max-width: 760px)').matches);
       }
-    })();
-  }, []);
+    }
+    setLoading(false);
+  }, [authLoading, authRole, authSession, profile]);
 
   useEffect(() => {
     if (!showSaveSuccess) return;
@@ -1166,7 +1119,7 @@ function problemReportContext(): Record<string, string> {
 }
 
 function apiResourceUrl(value: string): string {
-  return value.startsWith('/api/') ? `${API_BASE}${value.slice('/api'.length)}` : value;
+  return value;
 }
 
 function youtubeEmbedUrl(value: string): string | null {
@@ -1299,8 +1252,6 @@ function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiRequestError && (error.status === 401 || error.status === 403);
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <StudentApp />
-  </StrictMode>,
-);
+if (import.meta.env.VITE_STANDALONE_APP === 'student') {
+  createRoot(document.getElementById('root')!).render(<StudentApp />);
+}

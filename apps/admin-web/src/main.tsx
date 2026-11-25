@@ -1,8 +1,11 @@
-import { StrictMode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PressableButton } from './PressableButton';
 import { NotificationCenter } from '../../shared/NotificationCenter';
+import { useAuth } from '../../landing-web/src/auth/AuthContext';
+import { supabaseRequest } from '../../landing-web/src/supabaseApi';
+import { uploadScenarioVideo as uploadVideoToSupabase } from '../../landing-web/src/supabaseApi';
 import './style.css';
 
 type User = {
@@ -99,10 +102,6 @@ type ProblemReport = {
   resolvedAt: string | null;
 };
 
-type ApiFailure = {
-  message?: string | string[];
-};
-
 class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -112,9 +111,6 @@ class ApiRequestError extends Error {
   }
 }
 
-const API_BASE = import.meta.env.DEV
-  ? '/api'
-  : import.meta.env.VITE_API_BASE_URL || '/api';
 const LOGIN_APP_URL =
   import.meta.env.VITE_LOGIN_APP_URL ||
   (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
@@ -132,23 +128,19 @@ async function request<T>(
   body?: object,
   method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: method ?? (body ? 'POST' : 'GET'),
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const payload = (await response.json().catch(() => ({}))) as T & ApiFailure;
-  if (!response.ok) {
-    const message = Array.isArray(payload.message)
-      ? payload.message.join(' ')
-      : payload.message;
+  try {
+    return await supabaseRequest<T>(
+      path,
+      body as Record<string, unknown> | undefined,
+      method ?? (body ? 'POST' : 'GET'),
+    );
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'İstek başarısız oldu.';
     throw new ApiRequestError(
-      message || `İstek başarısız oldu (${response.status}).`,
-      response.status,
+      message,
+      400,
     );
   }
-  return payload;
 }
 
 // crypto.randomUUID yalnızca güvenli bağlamda (HTTPS / localhost) tanımlıdır.
@@ -174,7 +166,8 @@ function emptyContent(): ScenarioContent {
   };
 }
 
-function AdminApp() {
+export function AdminApp() {
+  const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'accounts' | 'content' | 'logs' | 'questions' | 'reports' | 'responses'>('content');
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
@@ -221,33 +214,23 @@ function AdminApp() {
   }, []);
 
   useEffect(() => {
-    void request<{ needsSetup: boolean }>('/auth/setup-status')
-      .then((status) => {
-        if (status.needsSetup) {
-          setRedirecting(true);
-          window.location.replace(`${getLoginAppUrl()}/setup`);
-          return null;
-        }
-        return request<User>('/auth/me?role=admin');
-      })
-      .then((currentUser) => {
-        if (!currentUser) return;
-        if (currentUser.role === 'admin') {
-          setUser(currentUser);
-          if (!currentUser.tutorialCompleted) {
-            setTutorialStep(0);
-            setSidebarOpen(window.matchMedia('(max-width: 760px)').matches);
-          }
-        }
-        else setRedirecting(true);
-      })
-      .catch((cause: unknown) => {
-        if (cause instanceof ApiRequestError && (cause.status === 401 || cause.status === 403)) {
-          setRedirecting(true);
-        } else setError(errorMessage(cause));
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    if (authLoading) return;
+    if (authSession && profile && authRole === 'admin') {
+      setUser({
+        id: profile.id,
+        username: profile.username,
+        role: 'admin',
+        tutorialCompleted: profile.tutorialCompleted,
+      });
+      if (!profile.tutorialCompleted) {
+        setTutorialStep(0);
+        setSidebarOpen(window.matchMedia('(max-width: 760px)').matches);
+      }
+    } else {
+      setRedirecting(true);
+    }
+    setLoading(false);
+  }, [authLoading, authRole, authSession, profile]);
 
   useEffect(() => {
     if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
@@ -375,6 +358,7 @@ function AdminApp() {
     const body = editingUserId
       ? {
           username: accountForm.username,
+          role: accountForm.role,
           ...(accountForm.password ? { password: accountForm.password } : {}),
         }
       : accountForm;
@@ -524,7 +508,7 @@ function AdminApp() {
       return;
     }
     if (!window.confirm(
-      `${account.username} hesabı config/users.json dosyasından kaldırılacak. Hesaba bağlı öğrenci yanıtları ve sorular da kalıcı olarak silinecek. Devam edilsin mi?`,
+      `${account.username} hesabı Supabase Auth'tan ve ilişkili verilerden kalıcı olarak silinecek. Devam edilsin mi?`,
     )) return;
     setError('');
     setMessage('');
@@ -546,22 +530,11 @@ function AdminApp() {
       setMessage(`“${file.name}” taslak kaydedildikten sonra yüklenecek.`);
       return;
     }
-    const formData = new FormData();
-    formData.append('video', file);
     setError('');
     setMessage('');
     setVideoUploading(true);
     try {
-      const response = await fetch(`${API_BASE}/scenarios/manage/${scenarioId}/video`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-      const payload = (await response.json().catch(() => ({}))) as Scenario & ApiFailure;
-      if (!response.ok) {
-        const error = Array.isArray(payload.message) ? payload.message.join(' ') : payload.message;
-        throw new ApiRequestError(error || `İstek başarısız oldu (${response.status}).`, response.status);
-      }
+      const payload = await uploadVideoToSupabase(file, scenarioId);
       setForm((current) => ({ ...current, videoUrl: payload.videoUrl }));
       setUploadedVideoUrl(payload.uploadedVideoUrl);
       setMessage('Senaryo videosu yüklendi.');
@@ -623,7 +596,7 @@ function AdminApp() {
   const isPublished = currentStatus === 'published';
   const tutorialSteps = [
     { title: 'Hoş geldin', text: 'Bu menüden hesapları, senaryoları, uzman sorularını, öğrenci yanıtlarını ve işlem kayıtlarını yönetebilirsin.' },
-    { title: 'Hesaplar', text: 'Hesapları elle oluşturup düzenleyebilir veya silebilirsin. Parolalar yalnızca config/users.json içinde hash’li tutulur.' },
+    { title: 'Hesaplar', text: 'Hesapları Supabase Auth üzerinden oluşturup düzenleyebilir veya silebilirsin. Parolalar Supabase Auth tarafından güvenli biçimde yönetilir.' },
     { title: 'Senaryolar', text: 'Taslak hazırla, video URL’si ekle veya sunucuya video yükle; yayımla ya da yayımlanmış senaryoyu tamamen sil.' },
     { title: 'Öğrenci değerlendirmeleri', text: 'Şaka/zorbalık seçimini, gerekçeyi ve her soruya verilen yanıtı kullanıcı ya da senaryoya göre inceleyebilirsin.' },
     { title: 'Uzman soruları', text: 'Öğrencilerin uzmana ilettiği soruları bu bölümden inceleyebilirsin.' },
@@ -1391,7 +1364,7 @@ function formatDate(value: string): string {
 }
 
 function apiResourceUrl(value: string): string {
-  return value.startsWith('/api/') ? `${API_BASE}${value.slice('/api'.length)}` : value;
+  return value;
 }
 
 function youtubeEmbedUrl(value: string): string | null {
@@ -1569,8 +1542,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.';
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AdminApp />
-  </StrictMode>,
-);
+if (import.meta.env.VITE_STANDALONE_APP === 'admin') {
+  createRoot(document.getElementById('root')!).render(<AdminApp />);
+}

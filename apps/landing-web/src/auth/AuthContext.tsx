@@ -11,9 +11,16 @@ import type { Session } from '@supabase/supabase-js';
 import { supabaseClient, supabaseConfigError } from '../supabaseClient';
 
 export type UserRole = 'student' | 'expert' | 'admin';
+export type AuthProfile = {
+  id: string;
+  username: string;
+  role: UserRole;
+  tutorialCompleted: boolean;
+};
 
 type AuthContextValue = {
   session: Session | null;
+  profile: AuthProfile | null;
   role: UserRole | null;
   loading: boolean;
   error: string | null;
@@ -27,14 +34,14 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Beklenmeyen bir kimlik doğrulama hatası oluştu.';
 }
 
-async function fetchUserRole(userId: string): Promise<UserRole> {
+async function fetchUserProfile(userId: string): Promise<AuthProfile> {
   if (!supabaseClient) {
     throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
   }
 
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('role')
+    .select('id, username, role, tutorial_completed')
     .eq('id', userId)
     .maybeSingle();
 
@@ -48,11 +55,17 @@ async function fetchUserRole(userId: string): Promise<UserRole> {
     throw new Error('Kullanıcı rolü student, expert veya admin olmalıdır.');
   }
 
-  return data.role;
+  return {
+    id: data.id,
+    username: data.username,
+    role: data.role,
+    tutorialCompleted: data.tutorial_completed,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadSession = useCallback(async (nextSession: Session | null) => {
     const currentRequestId = ++requestId.current;
     setSession(nextSession);
+    setProfile(null);
     setRole(null);
     setError(null);
 
@@ -71,11 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      const nextRole = await fetchUserRole(nextSession.user.id);
+      const nextProfile = await fetchUserProfile(nextSession.user.id);
       if (requestId.current === currentRequestId) {
-        setRole(nextRole);
+        setProfile(nextProfile);
+        setRole(nextProfile.role);
       }
-      return nextRole;
+      return nextProfile.role;
     } catch (loadError) {
       if (requestId.current === currentRequestId) {
         setError(getErrorMessage(loadError));
@@ -133,11 +148,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadSession]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (identifier: string, password: string) => {
     if (!supabaseClient) {
       throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
     }
 
+    const trimmedIdentifier = identifier.trim().toLowerCase();
+    const email = trimmedIdentifier.includes('@')
+      ? trimmedIdentifier
+      : `${trimmedIdentifier}@login.sakanin-sinirinda.invalid`;
     const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
@@ -160,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, role, loading, error, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, role, loading, error, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

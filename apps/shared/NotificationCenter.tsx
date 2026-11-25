@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { supabaseClient } from '../landing-web/src/supabaseClient';
+import { supabaseRequest } from '../landing-web/src/supabaseApi';
 import './notification-center.css';
 
 type UserRole = 'admin' | 'teacher' | 'student';
@@ -19,10 +21,6 @@ type NotificationSettings = {
   inAppEnabled: boolean;
 };
 
-const API_BASE = import.meta.env.DEV
-  ? '/api'
-  : import.meta.env.VITE_API_BASE_URL || '/api';
-
 export function NotificationCenter({ role }: { role: UserRole }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -41,18 +39,11 @@ export function NotificationCenter({ role }: { role: UserRole }) {
   const seenIds = useRef(new Set<string>());
 
   async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, {
-      method,
-      credentials: 'include',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const payload = (await response.json().catch(() => ({}))) as T & { message?: string | string[] };
-    if (!response.ok) {
-      const message = Array.isArray(payload.message) ? payload.message.join(' ') : payload.message;
-      throw new Error(message || `İstek başarısız oldu (${response.status}).`);
-    }
-    return payload;
+    return supabaseRequest<T>(
+      path,
+      body as Record<string, unknown> | undefined,
+      method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    );
   }
 
   async function refresh() {
@@ -78,25 +69,56 @@ export function NotificationCenter({ role }: { role: UserRole }) {
       setOpen(true);
       setShowSettings(true);
     }
-    const source = new EventSource(
-      new URL(`${API_BASE}/notifications/events`, window.location.origin),
-      { withCredentials: true },
-    );
-    source.onmessage = (event) => {
-      try {
-        const notification = JSON.parse(event.data) as NotificationItem;
-        if (seenIds.current.has(notification.id)) return;
-        seenIds.current.add(notification.id);
-        setItems((current) => [notification, ...current.filter((item) => item.id !== notification.id)].slice(0, 50));
-        if (!notification.isRead) setUnreadCount((current) => current + 1);
-      } catch (cause: unknown) {
-        console.error('Bildirim akışı çözümlenemedi.', cause);
-      }
-    };
+    let active = true;
+    const client = supabaseClient;
+    let channel: ReturnType<NonNullable<typeof client>['channel']> | undefined;
+    if (client) {
+      void client.auth.getUser().then(({ data, error: authError }) => {
+        if (!active) return;
+        if (authError) {
+          setError(`Oturum doğrulanamadı: ${authError.message}`);
+          return;
+        }
+        if (!data.user) return;
+        channel = client
+          .channel(`notifications:${data.user.id}`)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_user_id=eq.${data.user.id}`,
+          }, ({ new: row }) => {
+            const notification = {
+              id: String(row.id),
+              type: String(row.type),
+              title: String(row.title),
+              message: String(row.message),
+              targetUrl: typeof row.target_url === 'string' ? row.target_url : null,
+              metadata: (row.metadata ?? {}) as Record<string, unknown>,
+              isRead: Boolean(row.is_read),
+              createdAt: String(row.created_at),
+            };
+            if (seenIds.current.has(notification.id)) return;
+            seenIds.current.add(notification.id);
+            setItems((current) => [notification, ...current.filter((item) => item.id !== notification.id)].slice(0, 50));
+            if (!notification.isRead) setUnreadCount((current) => current + 1);
+          })
+          .subscribe((status, subscribeError) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              setError(subscribeError?.message ?? 'Gerçek zamanlı bildirim bağlantısı kurulamadı.');
+            }
+          });
+      }).catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Bildirim bağlantısı kurulamadı.');
+      });
+    }
     const permission = 'Notification' in window ? Notification.permission : 'unsupported';
     const promptDismissed = sessionStorage.getItem(`sakanin_notification_prompt_dismissed_${role}`);
     if (permission !== 'granted' && permission !== 'unsupported' && !promptDismissed) setPermissionPrompt(true);
-    return () => source.close();
+    return () => {
+      active = false;
+      if (channel && client) void client.removeChannel(channel);
+    };
   }, []);
 
   async function markRead(item: NotificationItem) {

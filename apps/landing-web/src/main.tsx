@@ -9,7 +9,8 @@ export function LandingPage() {
   const navigate = useNavigate();
 
   const handleLoginClick = () => {
-    navigate(role ? `/${role}` : '/login');
+    const rolePath = role === 'student' ? '/ogrenci' : role === 'expert' ? '/uzman' : '/admin';
+    navigate(role ? rolePath : '/login');
   };
 
   const [scrolled, setScrolled] = useState(false);

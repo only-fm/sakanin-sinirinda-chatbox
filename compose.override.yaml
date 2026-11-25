@@ -8,6 +8,8 @@ services:
         VITE_STUDENT_APP_URL: http://localhost:${STUDENT_DEV_PORT:-5173}
         VITE_TEACHER_APP_URL: http://localhost:${TEACHER_DEV_PORT:-5174}
         VITE_ADMIN_APP_URL: http://localhost:${ADMIN_DEV_PORT:-5175}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     command: npm run dev --workspace apps/landing-web -- --host 0.0.0.0
     volumes:
       - .:/workspace

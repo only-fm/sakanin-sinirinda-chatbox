@@ -1,94 +1,18 @@
-import { StrictMode, useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PressableButton } from './PressableButton';
+import { useAuth } from './auth/AuthContext';
 import './style.css';
 
-const LOGIN_URL =
-  import.meta.env.VITE_LOGIN_APP_URL ||
-  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
-const API_BASE = import.meta.env.DEV
-  ? '/api'
-  : import.meta.env.VITE_API_BASE_URL || '/api';
-type UserRole = 'student' | 'teacher' | 'admin';
-type User = {
-  id: string;
-  username: string;
-  role: UserRole;
-};
-const APP_URLS: Record<UserRole, string | undefined> = {
-  student: import.meta.env.VITE_STUDENT_APP_URL,
-  teacher: import.meta.env.VITE_TEACHER_APP_URL,
-  admin: import.meta.env.VITE_ADMIN_APP_URL,
-};
-
-function getLoginUrl(): string {
-  const loginUrl = new URL(LOGIN_URL, window.location.origin);
-  if (['localhost', '127.0.0.1', '[::1]'].includes(loginUrl.hostname)) {
-    loginUrl.hostname = window.location.hostname;
-  }
-  return loginUrl.toString().replace(/\/$/, '');
-}
-
-function getAppUrl(role: UserRole): string {
-  const configuredUrl = APP_URLS[role];
-  const appUrl = new URL(configuredUrl || window.location.origin, window.location.origin);
-  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
-    appUrl.hostname = window.location.hostname;
-  }
-  if (!configuredUrl || import.meta.env.DEV) {
-    appUrl.port = String(
-      role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
-        : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)
-          : (import.meta.env.DEV ? 5175 : 8083),
-    );
-  }
-  return appUrl.origin;
-}
-
-function LandingApp() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [sessionCheckError, setSessionCheckError] = useState(false);
+export function LandingPage() {
+  const { error, loading, role } = useAuth();
+  const navigate = useNavigate();
 
   const handleLoginClick = () => {
-    window.location.assign(currentUser ? getAppUrl(currentUser.role) : getLoginUrl());
+    navigate(role ? `/${role}` : '/login');
   };
 
   const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const roles: UserRole[] = ['student', 'teacher', 'admin'];
-    void (async () => {
-      try {
-        const users = await Promise.all(
-          roles.map(async (role) => {
-            const response = await fetch(`${API_BASE}/auth/me?role=${role}`, {
-              credentials: 'include',
-            });
-            if (response.status === 401 || response.status === 403) return null;
-            if (!response.ok) {
-              throw new Error(`Oturum kontrolü başarısız oldu (${response.status}).`);
-            }
-            return (await response.json()) as User;
-          }),
-        );
-        setCurrentUser(users.find((user) => user !== null) ?? null);
-      } catch {
-        setSessionCheckError(true);
-      } finally {
-        setSessionChecked(true);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    void fetch(`${API_BASE}/auth/setup-status`, { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((status: { needsSetup?: boolean } | null) => {
-        if (status?.needsSetup) window.location.replace(`${getLoginUrl()}/setup`);
-      })
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -118,8 +42,8 @@ function LandingApp() {
           <a href="#degerler">İlkelerimiz</a>
         </nav>
         <div className="nav-actions">
-          <PressableButton className="nav-login-btn" disabled={!sessionChecked} hoverScale={0.97} onClick={handleLoginClick} pressScale={0.94} type="button">
-            {!sessionChecked ? 'Kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Aç →'}
+          <PressableButton className="nav-login-btn" disabled={loading} hoverScale={0.97} onClick={handleLoginClick} pressScale={0.94} type="button">
+            {loading ? 'Kontrol ediliyor…' : role ? 'Panele Git' : 'Oturum Aç →'}
           </PressableButton>
         </div>
       </header>
@@ -141,8 +65,8 @@ function LandingApp() {
         </p>
 
         <div className="hero-cta-group">
-          <PressableButton className="primary-cta-btn" disabled={!sessionChecked} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
-            <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Platforma Giriş Yap'}</span>
+          <PressableButton className="primary-cta-btn" disabled={loading} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
+            <span>{loading ? 'Oturum kontrol ediliyor…' : role ? 'Panele Git' : 'Platforma Giriş Yap'}</span>
             <span className="btn-icon">🚀</span>
           </PressableButton>
           <a className="secondary-cta-btn" href="#farklar">
@@ -272,13 +196,13 @@ function LandingApp() {
         <div className="cta-box">
           <span className="cta-sparkle" aria-hidden="true">✨</span>
           <h2>Farkındalık Yolculuğuna Başlamaya Hazır mısın?</h2>
-          <p>Öğrenci, öğretmen veya yönetici hesabınla hemen oturum aç ve keşfetmeye başla.</p>
-          <PressableButton className="primary-cta-btn pulse-glow" disabled={!sessionChecked} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
-            <span>{!sessionChecked ? 'Oturum kontrol ediliyor…' : currentUser ? 'Sisteme Git' : 'Oturum Açma Sayfasına Git'}</span>
+          <p>Öğrenci, uzman veya yönetici hesabınla hemen oturum aç ve keşfetmeye başla.</p>
+          <PressableButton className="primary-cta-btn pulse-glow" disabled={loading} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
+            <span>{loading ? 'Oturum kontrol ediliyor…' : role ? 'Panele Git' : 'Oturum Açma Sayfasına Git'}</span>
             <span className="btn-icon">→</span>
           </PressableButton>
-          {sessionCheckError && (
-            <p role="status">Oturum kontrol edilemedi; devam etmek için giriş sayfasına yönlendirileceksiniz.</p>
+          {error && (
+            <p role="status">Oturum veya rol bilgisi alınamadı: {error}</p>
           )}
         </div>
       </section>
@@ -299,9 +223,3 @@ function LandingApp() {
     </div>
   );
 }
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LandingApp />
-  </StrictMode>,
-);

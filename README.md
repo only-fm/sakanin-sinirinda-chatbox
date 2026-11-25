@@ -123,7 +123,7 @@ Bu depo, ayrı frontend uygulamalarını, bir NestJS API'yi ve PostgreSQL verita
 
 | Bileşen | Teknoloji | Sorumluluk |
 |---|---|---|
-| `apps/landing-web` | React 19, Vite, TypeScript | Tanıtım sayfası ve oturum durumuna göre yönlendirme |
+| `apps/landing-web` | React 19, Vite, TypeScript, React Router, Supabase Auth | Tanıtım sayfası, e-posta/şifre girişi ve role göre korunan öğrenci/uzman/admin rotaları |
 | `apps/student-web` | React 19, Vite, TypeScript | Ortak giriş kurulum akışı ve öğrenci arayüzü |
 | `apps/teacher-web` | React 19, Vite, TypeScript | Senaryo inceleme ve öğrenci sorularını yanıtlama |
 | `apps/admin-web` | React 19, Vite, TypeScript | Hesap, senaryo, değerlendirme, audit ve bildirim yönetimi |
@@ -237,9 +237,13 @@ SESSION_COOKIE_DOMAIN=
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:admin@example.com
+
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
 `POSTGRES_PASSWORD` ile `DATABASE_URL` içindeki parolanın aynı olması gerekir. `.env` dosyasını Git'e eklemeyin.
+Birleşik landing uygulamasındaki Supabase girişi için proje URL'sini ve yalnızca public anon/publishable anahtarını tanımlayın. Bu `VITE_` değerleri frontend derlemesine eklenir; Supabase `service_role` anahtarını frontend'e koymayın.
 
 Temel değişkenler:
 
@@ -270,6 +274,39 @@ Temel değişkenler:
 | `VAPID_PUBLIC_KEY` | Tarayıcı push bildirimleri için public key |
 | `VAPID_PRIVATE_KEY` | Tarayıcı push bildirimleri için private key |
 | `VAPID_SUBJECT` | VAPID yönetici e-posta adresi |
+| `VITE_SUPABASE_URL` | Landing uygulamasının Supabase proje URL'si |
+| `VITE_SUPABASE_ANON_KEY` | Tarayıcıda kullanılmak üzere Supabase public anon/publishable anahtarı |
+
+### Tek uygulamada rol rotaları ve Supabase
+
+`apps/landing-web` uygulaması aşağıdaki rotaları aynı React Router uygulamasında sunar:
+
+| Rota | Erişim |
+|---|---|
+| `/` | Tanıtım sayfası |
+| `/login` | Supabase Auth e-posta/şifre girişi |
+| `/student` | `student` rolü |
+| `/expert` | `expert` rolü |
+| `/admin` | `admin` rolü |
+
+Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profiles.id` kaydındaki `role` alanını okur. Supabase SQL Editor'da rol tablosunu ve yalnızca kullanıcının kendi rolünü okumasına izin veren politikayı kurun:
+
+```sql
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role text not null check (role in ('student', 'expert', 'admin'))
+);
+
+alter table public.profiles enable row level security;
+
+create policy "Users can read their own role"
+  on public.profiles
+  for select
+  to authenticated
+  using ((select auth.uid()) = id);
+```
+
+Kullanıcılar ve roller güvenilir bir yönetici/servis işlemiyle oluşturulmalıdır; istemciden rol yazma politikası açmayın. Rota koruması arayüz erişimini sınırlar; veriye erişen her backend/API işlemi ayrıca yetki kontrolü ve RLS ile korunmalıdır. Yerel Vite çalıştırmasında kök `.env` dosyası okunur; Docker Compose'da da aynı iki değer landing frontend build argümanlarına aktarılır. Değerleri değiştirdikten sonra frontend'i yeniden başlatın veya yeniden derleyin.
 
 ### Geliştirme ortamını başlatma
 

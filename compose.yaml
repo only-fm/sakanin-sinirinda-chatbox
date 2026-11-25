@@ -58,6 +58,8 @@ services:
         VITE_STUDENT_APP_URL: ${STUDENT_APP_URL:-http://localhost:${STUDENT_PROD_PORT:-8081}}
         VITE_TEACHER_APP_URL: ${TEACHER_APP_URL:-http://localhost:${TEACHER_PROD_PORT:-8082}}
         VITE_ADMIN_APP_URL: ${ADMIN_APP_URL:-http://localhost:${ADMIN_PROD_PORT:-8083}}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     networks:
       - app
 

@@ -36,6 +36,8 @@ export function NotificationCenter({ role }: { role: UserRole }) {
   const [permissionPrompt, setPermissionPrompt] = useState(false);
   const [error, setError] = useState('');
   const [offset, setOffset] = useState(0);
+  const [deletingIds, setDeletingIds] = useState(() => new Set<string>());
+  const [deletingAll, setDeletingAll] = useState(false);
   const seenIds = useRef(new Set<string>());
 
   async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -129,24 +131,50 @@ export function NotificationCenter({ role }: { role: UserRole }) {
   }
 
   async function deleteItem(id: string) {
+    if (deletingIds.has(id) || deletingAll) return;
+    setDeletingIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
     try {
       await api(`/notifications/${id}`, 'DELETE');
       const wasUnread = items.some((item) => item.id === id && !item.isRead);
-      setItems((current) => current.filter((item) => item.id !== id));
+      window.setTimeout(() => {
+        setItems((current) => current.filter((item) => item.id !== id));
+        setDeletingIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+        seenIds.current.delete(id);
+      }, 360);
       if (wasUnread) setUnreadCount((current) => Math.max(0, current - 1));
     } catch (cause: unknown) {
+      setDeletingIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
       setError(cause instanceof Error ? cause.message : 'Bildirim silinemedi.');
     }
   }
 
   async function clearAll() {
+    if (deletingAll) return;
     if (!window.confirm('Tüm bildirim geçmişinizi silmek istediğinizden emin misiniz?')) return;
+    setDeletingAll(true);
     try {
       await api('/notifications', 'DELETE');
-      setItems([]);
-      setUnreadCount(0);
-      setOffset(0);
+      window.setTimeout(() => {
+        setItems([]);
+        setUnreadCount(0);
+        setOffset(0);
+        setDeletingAll(false);
+        seenIds.current.clear();
+      }, 360);
     } catch (cause: unknown) {
+      setDeletingAll(false);
       setError(cause instanceof Error ? cause.message : 'Bildirim geçmişi silinemedi.');
     }
   }
@@ -293,7 +321,14 @@ export function NotificationCenter({ role }: { role: UserRole }) {
               ) : (
                 <ul className="notification-list">
                   {visibleItems.map((item) => (
-                    <li className={item.isRead ? 'notification-item' : 'notification-item unread'} key={item.id}>
+                    <li
+                      className={[
+                        'notification-item',
+                        item.isRead ? '' : 'unread',
+                        deletingAll || deletingIds.has(item.id) ? 'notification-removing' : '',
+                      ].filter(Boolean).join(' ')}
+                      key={item.id}
+                    >
                       <button className="notification-content" onClick={() => void markRead(item)} type="button">
                         <img src="/icon.png" alt="" />
                         <span><strong>{item.title}</strong><span>{item.message}</span>{deviceDescription(item) && <small>{deviceDescription(item)}</small>}<time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('tr-TR')}</time></span>

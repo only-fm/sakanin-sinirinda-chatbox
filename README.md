@@ -422,7 +422,7 @@ Bildirim kayıtları ve gerekli PostgreSQL indeksleri API ilk açılışında ol
 ### Güvenlik notları
 
 - `.env`, `config/users.json`, loglar ve yüklenen videolar Git'e eklenmemelidir.
-- Oturumlar HTTP-only cookie olarak taşınır; üretimde cookie `Secure` olarak işaretlenir.
+- Oturumlar `HttpOnly` cookie olarak taşınır; HTTPS isteklerinde `Secure` kullanılır. Ters vekil `X-Forwarded-Proto` başlığını iletmelidir. HTTP üzerinden erişimde oturum çerezleri şifrelenmediğinden üretimde HTTPS kullanın.
 - Oturum token'inin kendisi yerine veritabanında yalnızca token özeti saklanır.
 - Oturum süresi 12 saattir.
 - Parolalar `config/users.json` içinde düz metin değil scrypt hash olarak saklanır.

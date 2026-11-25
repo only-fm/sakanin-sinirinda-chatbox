@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
-import { AuthRequest } from './auth.types';
+import { AuthRequest, shouldUseSecureCookie } from './auth.types';
 import { Roles } from './roles.decorator';
 
 @Controller('auth')
@@ -41,10 +41,10 @@ export class AuthController {
       deviceId,
       request.headers['user-agent'],
     );
-    setDeviceCookie(response, deviceId);
+    setDeviceCookie(response, deviceId, request);
     response.cookie(`sakanin_${session.user.role}_session`, session.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookie(request),
       sameSite: 'lax',
       path: '/api',
       maxAge: 12 * 60 * 60 * 1000,
@@ -69,10 +69,10 @@ export class AuthController {
       deviceId,
       request.headers['user-agent'],
     );
-    setDeviceCookie(response, deviceId);
+    setDeviceCookie(response, deviceId, request);
     response.cookie(`sakanin_${session.user.role}_session`, session.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookie(request),
       sameSite: 'lax',
       path: '/api',
       maxAge: 12 * 60 * 60 * 1000,
@@ -120,7 +120,7 @@ export class AuthController {
     if (token) await this.authService.logout(token);
     response.clearCookie(cookieName, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookie(request),
       sameSite: 'lax',
       path: '/api',
       ...(process.env.SESSION_COOKIE_DOMAIN
@@ -142,10 +142,10 @@ function getDeviceId(request: AuthRequest): string {
     : randomUUID();
 }
 
-function setDeviceCookie(response: Response, deviceId: string): void {
+function setDeviceCookie(response: Response, deviceId: string, request: AuthRequest): void {
   response.cookie('sakanin_device_id', deviceId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookie(request),
     sameSite: 'lax',
     path: '/api',
     maxAge: 365 * 24 * 60 * 60 * 1000,

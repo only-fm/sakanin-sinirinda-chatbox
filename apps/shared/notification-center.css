@@ -141,6 +141,22 @@
   border-radius: 12px;
 }
 
+.notification-item.notification-removing {
+  pointer-events: none;
+  animation: notification-slide-out .36s ease-in forwards;
+}
+
+@keyframes notification-slide-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+}
+
 .notification-item.unread {
   background: #eef6ff;
 }
@@ -363,5 +379,11 @@
 
   .notification-modal {
     padding: 26px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-item.notification-removing {
+    animation-duration: .01ms;
   }
 }

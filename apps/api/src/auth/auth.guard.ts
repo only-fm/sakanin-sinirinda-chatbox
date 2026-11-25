@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service';
-import { AuthRequest, UserRole } from './auth.types';
+import { AuthRequest, shouldUseSecureCookie, UserRole } from './auth.types';
 import { REQUIRED_ROLES } from './roles.decorator';
 
 @Injectable()
@@ -61,7 +61,7 @@ export class AuthGuard implements CanActivate {
       if (!currentDeviceId) {
         context.switchToHttp().getResponse<Response>().cookie('sakanin_device_id', deviceId, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: shouldUseSecureCookie(request),
           sameSite: 'lax',
           path: '/api',
           maxAge: 365 * 24 * 60 * 60 * 1000,

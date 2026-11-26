@@ -2,6 +2,10 @@
   command = "npm run build --workspace apps/landing-web"
   publish = "apps/landing-web/dist"
 
+[build.environment]
+  # The Supabase anon key is public by design and is embedded in the frontend bundle.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

@@ -15,6 +15,7 @@ export type AuthProfile = {
   id: string;
   username: string;
   role: UserRole;
+  email: string | null;
   tutorialCompleted: boolean;
 };
 
@@ -24,7 +25,8 @@ type AuthContextValue = {
   role: UserRole | null;
   loading: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<UserRole>;
+  signIn: (username: string, password: string, captchaToken: string) => Promise<AuthProfile>;
+  saveStudentEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -41,7 +43,7 @@ async function fetchUserProfile(userId: string): Promise<AuthProfile> {
 
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, username, role, tutorial_completed')
+    .select('id, username, role, email, tutorial_completed')
     .eq('id', userId)
     .maybeSingle();
 
@@ -59,6 +61,7 @@ async function fetchUserProfile(userId: string): Promise<AuthProfile> {
     id: data.id,
     username: data.username,
     role: data.role,
+    email: data.email,
     tutorialCompleted: data.tutorial_completed,
   };
 }
@@ -90,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(nextProfile);
         setRole(nextProfile.role);
       }
-      return nextProfile.role;
+      return nextProfile;
     } catch (loadError) {
       if (requestId.current === currentRequestId) {
         setError(getErrorMessage(loadError));
@@ -148,26 +151,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadSession]);
 
-  const signIn = useCallback(async (identifier: string, password: string) => {
+  const signIn = useCallback(async (username: string, password: string, captchaToken: string) => {
     if (!supabaseClient) {
       throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
     }
+    if (!captchaToken.trim()) {
+      throw new Error('Giriş için Turnstile doğrulaması gereklidir.');
+    }
 
-    const trimmedIdentifier = identifier.trim().toLowerCase();
-    const email = trimmedIdentifier.includes('@')
-      ? trimmedIdentifier
-      : `${trimmedIdentifier}@login.sakanin-sinirinda.invalid`;
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(normalizedUsername)) {
+      throw new Error('Geçerli bir kullanıcı adı girin.');
+    }
+
     const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
-      email,
+      email: `${normalizedUsername}@login.sakanin-sinirinda.invalid`,
       password,
+      options: { captchaToken },
     });
     if (signInError) throw signInError;
     if (!data.session) throw new Error('Giriş başarılı oldu ancak oturum oluşturulamadı.');
 
-    const nextRole = await loadSession(data.session);
-    if (!nextRole) throw new Error('Kullanıcı rolü bulunamadı.');
-    return nextRole;
+    const nextProfile = await loadSession(data.session);
+    if (!nextProfile) throw new Error('Kullanıcı profili bulunamadı.');
+    return nextProfile;
   }, [loadSession]);
+
+  const saveStudentEmail = useCallback(async (email: string) => {
+    if (!supabaseClient || !session) {
+      throw new Error(supabaseConfigError ?? 'E-posta kaydetmek için oturum açmalısınız.');
+    }
+    if (profile?.role !== 'student') {
+      throw new Error('Bu işlem yalnızca öğrenci hesapları için kullanılabilir.');
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error('Geçerli bir e-posta adresi girin.');
+    }
+
+    const { data, error: updateError } = await supabaseClient
+      .from('profiles')
+      .update({ email: normalizedEmail })
+      .eq('id', session.user.id)
+      .is('email', null)
+      .select('email')
+      .maybeSingle();
+
+    if (updateError) throw new Error(`E-posta kaydedilemedi: ${updateError.message}`);
+    if (!data) {
+      throw new Error('E-posta kaydedilemedi. Profil zaten güncellenmiş olabilir; lütfen sayfayı yenileyin.');
+    }
+
+    setProfile((currentProfile) => currentProfile
+      ? { ...currentProfile, email: data.email }
+      : currentProfile);
+  }, [profile?.role, session]);
 
   const signOut = useCallback(async () => {
     if (!supabaseClient) {
@@ -179,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, role, loading, error, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, role, loading, error, signIn, saveStudentEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

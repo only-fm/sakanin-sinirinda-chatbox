@@ -817,6 +817,38 @@ body {
   opacity: 0.65;
 }
 
+.auth-login-screen .turnstile-widget {
+  justify-self: center;
+}
+
+.onboarding-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.onboarding-modal {
+  width: min(100%, 30rem);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+}
+
+.onboarding-modal h2 {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.onboarding-modal > p {
+  color: var(--text-muted);
+}
+
 .auth-login-screen .auth-error {
   margin: 0 0 0.85rem;
   padding: 0.8rem 1rem;

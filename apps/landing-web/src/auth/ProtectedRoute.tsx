@@ -3,7 +3,7 @@ import type { UserRole } from './AuthContext';
 import { useAuth } from './AuthContext';
 
 export function ProtectedRoute({ allowedRole }: { allowedRole: UserRole }) {
-  const { error, loading, role, session } = useAuth();
+  const { error, loading, profile, role, session } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -36,6 +36,10 @@ export function ProtectedRoute({ allowedRole }: { allowedRole: UserRole }) {
         </section>
       </main>
     );
+  }
+
+  if (role === 'student' && !profile?.email?.trim()) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return <Outlet />;

@@ -9,7 +9,7 @@ export function LandingPage() {
   const navigate = useNavigate();
 
   const handleLoginClick = () => {
-    const rolePath = role === 'student' ? '/ogrenci' : role === 'expert' ? '/uzman' : '/admin';
+    const rolePath = role === 'student' ? '/student' : role === 'expert' ? '/expert' : '/admin';
     navigate(role ? rolePath : '/login');
   };
 

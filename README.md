@@ -38,8 +38,8 @@ Birleşik Vite uygulaması için geliştirme adresi:
 | Tek React uygulaması | <http://localhost:5172> |
 | Tanıtım sayfası | <http://localhost:5172/> |
 | Ortak giriş | <http://localhost:5172/login> |
-| Öğrenci paneli | <http://localhost:5172/ogrenci> |
-| Uzman paneli | <http://localhost:5172/uzman> |
+| Öğrenci paneli | <http://localhost:5172/student> |
+| Uzman paneli | <http://localhost:5172/expert> |
 | Yönetici paneli | <http://localhost:5172/admin> |
 
 Beklenen sağlık kontrolü yanıtı:
@@ -147,6 +147,7 @@ Tek React uygulamasını çalıştırmak için gereken ayarlar:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_VAPID_PUBLIC_KEY=
+VITE_TURNSTILE_SITE_KEY=
 ```
 
 `.env` dosyasını Git'e eklemeyin. Frontend'e yalnızca Supabase public anon/publishable anahtarını verin; `service_role` anahtarı yalnızca Supabase Edge Functions ortamında kalmalıdır. Eski Docker Compose API ayarları bu SPA kurulumu için kullanılmaz.
@@ -158,9 +159,9 @@ VITE_VAPID_PUBLIC_KEY=
 | Rota | Erişim |
 |---|---|
 | `/` | Tanıtım sayfası |
-| `/login` | Supabase Auth kullanıcı adı/e-posta ve parola girişi |
-| `/ogrenci` | `student` rolü |
-| `/uzman` | `expert` rolü |
+| `/login` | Turnstile doğrulamalı Supabase Auth kullanıcı adı ve parola girişi |
+| `/student` | `student` rolü |
+| `/expert` | `expert` rolü |
 | `/admin` | `admin` rolü |
 
 Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profiles.id` kaydındaki `role` alanını okur. Tablo ve RLS politikaları için proje kökündeki SQL migration'larını Supabase CLI ile uygulayın:
@@ -171,13 +172,19 @@ supabase db push
 supabase functions deploy admin-users
 ```
 
+`profiles` kullanıcı/rol altyapısını SQL Editor üzerinden kurmak veya yenilemek için `supabase/user_management.sql` dosyasının tamamını çalıştırın. Bu betik `profiles` tablosunu, yeni Auth kullanıcıları için öğrenci profili oluşturan trigger'ı ve rol alanının istemciden değiştirilemediği RLS politikalarını kurar. Uygulamanın diğer tabloları için migration'ları ayrıca `supabase db push` ile uygulayın.
+
+Öğrencinin `profiles.email` alanı boşsa ilk girişte e-posta toplama penceresi gösterilir. E-posta kaydedilmeden öğrenci paneline erişilemez; profil sahibi yalnızca kendi e-posta alanını güncelleyebilir.
+
 İlk Auth kullanıcısını oluşturduktan sonra SQL Editor'da kimliğini kontrol edip tek seferlik yükseltin:
 
 ```sql
 update public.profiles set role = 'admin' where id = '<auth-user-uuid>';
 ```
 
-Yönetici panelinden açılan kullanıcılar Supabase Auth'ta dahili `.invalid` e-posta takma adıyla oluşturulur ve kullanıcı adıyla giriş yapar. Gerçek e-posta ile oluşturulmuş hesaplar e-posta adresiyle giriş yapabilir. `contact_email` alanı ileride kişisel e-posta eklenmesine zemin sağlar; e-posta tabanlı ikinci faktör henüz etkin değildir. Öğrenciler için Cloudflare Zero Trust gerekmez; Supabase Auth ve RLS erişim sınırları kullanılır.
+Yönetici panelinden açılan kullanıcılar Supabase Auth'ta dahili `.invalid` e-posta takma adıyla oluşturulur; bu takma ad kullanıcı adıyla girişte kullanılır. Gerçek e-posta ile oluşturulmuş hesaplar e-posta adresiyle giriş yapabilir. `contact_email` alanı ileride kişisel e-posta eklenmesine zemin sağlar; e-posta tabanlı ikinci faktör henüz etkin değildir. Öğrenciler için Cloudflare Zero Trust gerekmez; Supabase Auth ve RLS erişim sınırları kullanılır.
+
+Giriş bot koruması için Cloudflare Turnstile'da bir widget oluşturun; site key'i yerel `.env` ve Netlify site environment variables bölümündeki `VITE_TURNSTILE_SITE_KEY` değerine ekleyin. Supabase Dashboard'da Authentication CAPTCHA ayarlarında Turnstile sağlayıcısını etkinleştirip aynı widget'ın secret key'ini girin. Frontend site key'i tek başına yeterli değildir; Supabase tarafındaki secret key doğrulaması olmadan Auth CAPTCHA doğrulanmaz.
 
 Yerel Vite çalıştırmasında kök `.env` dosyasında `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ve gerekiyorsa `VITE_VAPID_PUBLIC_KEY` tanımlayın. `service_role` anahtarını yalnız Supabase Edge Function secret olarak saklayın; frontend'e koymayın.
 

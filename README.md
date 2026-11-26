@@ -159,7 +159,7 @@ VITE_TURNSTILE_SITE_KEY=
 | Rota | Erişim |
 |---|---|
 | `/` | Tanıtım sayfası |
-| `/login` | Turnstile doğrulamalı Supabase Auth kullanıcı adı ve parola girişi |
+| `/login` | Turnstile doğrulamalı Supabase Auth kullanıcı adı veya profilde tanımlı e-posta ve parola girişi |
 | `/student` | `student` rolü |
 | `/expert` | `expert` rolü |
 | `/admin` | `admin` rolü |
@@ -170,11 +170,12 @@ Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profil
 supabase link --project-ref <project-ref>
 supabase db push
 supabase functions deploy admin-users
+supabase functions deploy email-login
 ```
 
 `profiles` kullanıcı/rol altyapısını SQL Editor üzerinden kurmak veya yenilemek için `supabase/user_management.sql` dosyasının tamamını çalıştırın. Bu betik `profiles` tablosunu, yeni Auth kullanıcıları için öğrenci profili oluşturan trigger'ı ve rol alanının istemciden değiştirilemediği RLS politikalarını kurar. Uygulamanın diğer tabloları için migration'ları ayrıca `supabase db push` ile uygulayın.
 
-Öğrencinin `profiles.email` alanı boşsa ilk girişte e-posta toplama penceresi gösterilir. E-posta kaydedilmeden öğrenci paneline erişilemez; profil sahibi yalnızca kendi e-posta alanını güncelleyebilir.
+Öğrencinin `profiles.email` alanı boşsa ilk girişte e-posta toplama penceresi gösterilir. E-posta kaydedilmeden öğrenci paneline erişilemez; profil sahibi yalnızca kendi e-posta alanını güncelleyebilir. Kullanıcı adıyla veya bu alana kaydedilen e-posta adresiyle giriş yapılabilir. E-posta girişinde `email-login` Edge Function, adresi Auth hesabına sunucu tarafında eşler ve yalnızca parola doğrulanınca oturum döndürür; e-posta adresleri benzersiz olmalıdır.
 
 İlk Auth kullanıcısını oluşturduktan sonra SQL Editor'da kimliğini kontrol edip tek seferlik yükseltin:
 

@@ -118,9 +118,7 @@ export function LoginPage() {
       <section className="login-content">
         <p className="eyebrow">Şakanın Sınırında · Ortak giriş</p>
         <h2>Tekrar hoş geldin!</h2>
-        <p className="intro">
-          Kullanıcı adın ve parolanla giriş yap.
-        </p>
+        <p className="intro">Kullanıcı adın veya e-posta adresin ve parolanla giriş yap.</p>
         <Link className="auth-back-link" to="/">Tanıtım sayfasına dön</Link>
         {supabaseConfigError && <p className="auth-error" role="alert">{supabaseConfigError}</p>}
         {sessionError && <p className="auth-error" role="alert">{sessionError}</p>}
@@ -137,7 +135,7 @@ export function LoginPage() {
           </button>
         )}
         <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
-          <label htmlFor="identifier">Kullanıcı adı</label>
+          <label htmlFor="identifier">Kullanıcı adı veya e-posta</label>
           <input
             autoComplete="username"
             id="identifier"

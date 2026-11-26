@@ -1,12 +1,19 @@
 alter table public.profiles add column contact_email text;
+alter table public.profiles add column email text;
 
 revoke update on public.profiles from authenticated;
-grant update (contact_email) on public.profiles to authenticated;
+grant update (contact_email, email) on public.profiles to authenticated;
 
 create policy "Users can update their contact email"
   on public.profiles for update to authenticated
-  using (id = (select auth.uid()))
-  with check (id = (select auth.uid()));
+  using (
+    id = (select auth.uid())
+    and (select public.current_user_role()) = 'student'
+  )
+  with check (
+    id = (select auth.uid())
+    and (select public.current_user_role()) = 'student'
+  );
 
 revoke update on public.expert_questions from authenticated;
 grant update (answer, answered_by, answered_at) on public.expert_questions to authenticated;
@@ -27,7 +34,7 @@ begin
   )
   select p.id, 'expert_question', 'Yeni öğrenci sorusu',
          'Bir öğrenci uzmana soru yöneltti.',
-         '/uzman?question=' || new.id::text,
+         '/expert?question=' || new.id::text,
          jsonb_build_object('questionId', new.id, 'scenarioId', new.scenario_id)
   from public.profiles p
   left join public.notification_preferences np on np.user_id = p.id
@@ -53,7 +60,7 @@ begin
     )
     select new.student_id, 'expert_answer', 'Uzman sorunu yanıtladı',
            'Uzman soruna bir yanıt verdi.',
-           '/ogrenci?view=expert&question=' || new.id::text,
+           '/student?view=expert&question=' || new.id::text,
            jsonb_build_object('questionId', new.id)
     where coalesce((
       select np.in_app_enabled
@@ -82,7 +89,7 @@ begin
     )
     select p.id, 'scenario_published', 'Yeni senaryo yayımlandı',
            new.title,
-           '/ogrenci?scenario=' || new.id::text,
+           '/student?scenario=' || new.id::text,
            jsonb_build_object('scenarioId', new.id)
     from public.profiles p
     left join public.notification_preferences np on np.user_id = p.id

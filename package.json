@@ -5,7 +5,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace apps/landing-web",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "overrides": {

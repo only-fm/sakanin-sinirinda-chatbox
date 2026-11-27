@@ -39,7 +39,7 @@ VITE_TURNSTILE_SITE_KEY=
 
 Vite uygulaması `http://localhost:5172` üzerinde açılır. Tarayıcıdaki Supabase Auth, veritabanı, Storage ve Realtime erişimleri `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` ile oluşturulan istemci üzerinden çalışır. `service_role` anahtarını frontend'e veya `.env` içindeki `VITE_` değişkenlerine koymayın.
 
-Doğrulama ve üretim derlemesi:
+Doğrulama ve üretim derlemesi (çıktı depo kökündeki `dist/` klasörüne yazılır):
 
 ```bash
 npm run typecheck
@@ -58,10 +58,12 @@ supabase functions deploy admin-users
 
 Yönetici panelindeki hesap oluşturma, güncelleme ve silme işlemleri yetki yükseltme gerektirdiği için `admin-users` Edge Function'ını kullanır. Bu fonksiyonun Supabase ortamında `SUPABASE_URL`, `SUPABASE_ANON_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` secret'ları tanımlı olmalıdır. Service-role anahtarı yalnızca Edge Function ortamında kalmalıdır.
 
+Tüm diğer Auth, profil, içerik, Storage ve bildirim veritabanı işlemleri tarayıcıdan `@supabase/supabase-js` istemcisiyle doğrudan Supabase'e gider. `admin-users` yalnızca Auth Admin API gerektiren hesap yönetimi işlemlerinde kullanılır; bunun dışında özel API/backend servisi yoktur.
+
 İlk yönetici Auth kullanıcısını Supabase Dashboard > Authentication > Users bölümünden oluşturun. SQL Editor'da ilgili `public.profiles.id` kaydının rolünü tek seferlik `admin` yapın.
 
 Giriş bot koruması için Turnstile widget site key'ini `VITE_TURNSTILE_SITE_KEY` olarak ayarlayın ve Supabase Dashboard'da aynı widget için CAPTCHA doğrulamasını etkinleştirin.
 
 ## Netlify dağıtımı
 
-Netlify'da `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlayın. Netlify build ayarı `netlify.toml` dosyasında yapılandırılmıştır. Supabase migration'larını ve `admin-users` Edge Function'ını dağıtımdan önce uygulayın.
+Netlify'da `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlayın. Netlify `npm run build` komutunu çalıştırıp depo kökündeki `dist/` klasörünü yayımlar. Supabase migration'larını ve `admin-users` Edge Function'ını dağıtımdan önce uygulayın.

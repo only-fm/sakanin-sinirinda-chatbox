@@ -68,6 +68,43 @@ class ApiRequestError extends Error {
   }
 }
 
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+const APP_URLS: Record<User['role'], string> = {
+  student: import.meta.env.VITE_STUDENT_APP_URL,
+  teacher: import.meta.env.VITE_TEACHER_APP_URL,
+  admin: import.meta.env.VITE_ADMIN_APP_URL,
+};
+
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
+
+function isLoginApp(): boolean {
+  return window.location.origin === getLoginAppUrl();
+}
+
+function getAppUrl(role: User['role']): string {
+  const configuredUrl = APP_URLS[role];
+  const appUrl = new URL(configuredUrl || window.location.origin, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  if (!configuredUrl) {
+    appUrl.port = String(
+      role === 'student' ? (import.meta.env.DEV ? 5173 : 8081)
+        : role === 'teacher' ? (import.meta.env.DEV ? 5174 : 8082)
+          : (import.meta.env.DEV ? 5175 : 8083),
+    );
+  }
+  return appUrl.origin;
+}
+
 async function request<T>(path: string, body?: object, method?: 'POST' | 'PATCH'): Promise<T> {
   try {
     return await supabaseRequest<T>(
@@ -90,18 +127,14 @@ async function request<T>(path: string, body?: object, method?: 'POST' | 'PATCH'
 let lastApiError: { status: number; message: string; at: string } | null = null;
 
 export function StudentApp() {
-  const {
-    completeTutorial,
-    loading: authLoading,
-    profile,
-    role: authRole,
-    session: authSession,
-    signOut,
-  } = useAuth();
+  const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [activePage, setActivePage] = useState<'scenarios' | 'expert'>('scenarios');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loginState, setLoginState] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [loading, setLoading] = useState(true);
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
   const [activeScenario, setActiveScenario] = useState<ScenarioDetail | null>(null);
@@ -126,6 +159,11 @@ export function StudentApp() {
       return [];
     }
   });
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupUsername, setSetupUsername] = useState('admin');
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupPasswordConfirm, setSetupPasswordConfirm] = useState('');
+  const [setupLoading, setSetupLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDescription, setReportDescription] = useState('');
   const [reportSending, setReportSending] = useState(false);
@@ -228,6 +266,49 @@ export function StudentApp() {
     }
   }
 
+  async function handleInitialSetup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    if (setupPassword !== setupPasswordConfirm) {
+      setError('Girdiğiniz parolalar birbiriyle uyuşmuyor.');
+      return;
+    }
+    setSetupLoading(true);
+    try {
+      const result = await request<{ user: User }>('/auth/setup', {
+        username: setupUsername,
+        password: setupPassword,
+      });
+      setMessage('🎉 Yönetici hesabı oluşturuldu! Yönetici paneline yönlendiriliyorsunuz…');
+      setTimeout(() => {
+        window.location.assign(getAppUrl(result.user.role));
+      }, 1000);
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+      setSetupLoading(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setLoginState('submitting');
+    try {
+      const result = await request<{ user: User }>('/auth/login', {
+        username,
+        password,
+      });
+      const destination = getAppUrl(result.user.role);
+      setLoginState('success');
+      window.setTimeout(() => window.location.assign(destination), 1200);
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+      setLoginState('idle');
+    }
+  }
+
   async function openScenario(id: string) {
     setError('');
     setMessage('');
@@ -309,8 +390,8 @@ export function StudentApp() {
   async function logout() {
     setError('');
     try {
-      await signOut();
-      window.location.assign('/login');
+      await request('/auth/logout?role=student', {});
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -318,8 +399,8 @@ export function StudentApp() {
 
   async function finishTutorial() {
     try {
-      completeTutorial();
-      setUser((current) => current ? { ...current, tutorialCompleted: true } : current);
+      const updated = await request<User>('/auth/tutorial-complete', {}, 'PATCH');
+      setUser(updated);
       setTutorialStep(null);
     } catch (cause: unknown) {
       setError(errorMessage(cause));
@@ -358,6 +439,77 @@ export function StudentApp() {
         <div className="spinner-loader" aria-hidden="true" />
         <p className="eyebrow">Şakanın Sınırında</p>
         <p role="status" className="loading-text">Oturum kontrol ediliyor…</p>
+      </main>
+    );
+  }
+
+  if (needsSetup) {
+    return (
+      <main className="setup-wizard-screen">
+        <div className="ambient-background" aria-hidden="true">
+          <div className="ambient-orb orb-1" />
+          <div className="ambient-orb orb-2" />
+        </div>
+        <div className="setup-wizard-card">
+          <div className="setup-wizard-header">
+            <div className="setup-badge-icon" aria-hidden="true">
+              <span>⚙️</span>
+            </div>
+            <p className="eyebrow">İLK KURULUM SİHİRBAZI</p>
+            <h1>Yönetici Hesabını Oluşturun</h1>
+            <p className="setup-subtitle">
+              Sistemde henüz bir yönetici hesabı bulunmuyor. Platformu yönetmek ve senaryolar eklemek için
+              ilk yönetici hesabınızı şimdi belirleyin.
+            </p>
+          </div>
+
+          <form className="setup-wizard-form" onSubmit={(e) => void handleInitialSetup(e)}>
+            <label htmlFor="setup-username">Yönetici Kullanıcı Adı</label>
+            <input
+              autoComplete="username"
+              id="setup-username"
+              maxLength={32}
+              minLength={3}
+              onChange={(e) => setSetupUsername(e.target.value)}
+              required
+              type="text"
+              value={setupUsername}
+            />
+
+            <label htmlFor="setup-password">Yönetici Parolası</label>
+            <input
+              autoComplete="new-password"
+              id="setup-password"
+              maxLength={128}
+              minLength={1}
+              onChange={(e) => setSetupPassword(e.target.value)}
+              placeholder="İstediğiniz parolayı belirleyin"
+              required
+              type="password"
+              value={setupPassword}
+            />
+
+            <label htmlFor="setup-password-confirm">Parola Tekrarı</label>
+            <input
+              autoComplete="new-password"
+              id="setup-password-confirm"
+              maxLength={128}
+              minLength={1}
+              onChange={(e) => setSetupPasswordConfirm(e.target.value)}
+              placeholder="Parolanızı tekrar girin"
+              required
+              type="password"
+              value={setupPasswordConfirm}
+            />
+
+            <button className="primary-button setup-submit-btn" disabled={setupLoading} type="submit">
+              {setupLoading ? 'Oluşturuluyor…' : 'Yönetici Hesabını Oluştur ve Başla 🚀'}
+            </button>
+          </form>
+
+          {message && <p className="success" role="status">{message}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
+        </div>
       </main>
     );
   }
@@ -875,12 +1027,75 @@ export function StudentApp() {
   }
 
   return (
-    <main className="loading-screen">
-      <p className="eyebrow">Şakanın Sınırında</p>
-      <p role="status">Bu paneli görüntülemek için Supabase Auth oturumu gereklidir.</p>
-      <button className="primary-button" onClick={() => window.location.assign('/login')} type="button">
-        Giriş sayfasına dön
-      </button>
+    <main className="login-screen">
+      <div className="ambient-background" aria-hidden="true">
+        <div className="ambient-orb orb-1" />
+        <div className="ambient-orb orb-2" />
+        <div className="ambient-orb orb-3" />
+      </div>
+      <section className="login-aside" aria-label="Şakanın Sınırında hakkında">
+        <div className="brand-mark-wrapper">
+          <img className="brand-mark" src="/icon.png" alt="" aria-hidden="true" />
+        </div>
+        <p className="aside-kicker">Birlikte düşünmek için güvenli ve keyifli bir alan</p>
+        <h1>Şaka nerede biter, incitmek nerede başlar?</h1>
+        <p>
+          Farklı bakış açılarına yer aç. Kendi düşünceni keşfet; yanıtların doğru ya da
+          yanlış diye değerlendirilmez.
+        </p>
+      </section>
+      <section className="login-content">
+        <p className="eyebrow">Şakanın Sınırında · Ortak giriş</p>
+        <h2>Tekrar hoş geldin!</h2>
+        <p className="intro">
+          Düşüncelerini keşfetmek ve değerlendirmek için kullanıcı adın ve parolanla giriş yap.
+        </p>
+        <form onSubmit={(event) => void handleSubmit(event)}>
+          <label htmlFor="username">Kullanıcı adı</label>
+          <input
+            autoComplete="username"
+            id="username"
+            maxLength={32}
+            minLength={3}
+            onChange={(event) => setUsername(event.target.value)}
+            required
+            title="3-32 karakter; harf, rakam, nokta, alt çizgi veya tire kullanın."
+            type="text"
+            value={username}
+          />
+          <label htmlFor="password">Parola</label>
+          <input
+            autoComplete="current-password"
+            id="password"
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            type="password"
+            value={password}
+          />
+          <button className="primary-button" disabled={loginState !== 'idle'} type="submit">
+            {loginState === 'submitting' ? 'Giriş yapılıyor…' : 'Giriş yap'}
+          </button>
+        </form>
+        {message && <p className="success" role="status">{message}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
+      </section>
+      {loginState === 'success' && (
+        <div className="login-success-screen" role="status" aria-live="polite">
+          <div className="login-success-card">
+            <div className="login-success-icon" aria-hidden="true">
+              <svg viewBox="0 0 52 52">
+                <circle cx="26" cy="26" r="24" />
+                <path d="m15 27 7 7 15-16" />
+              </svg>
+            </div>
+            <h2>Oturum açıldı!</h2>
+            <p>Sisteme yönlendiriliyorsun…</p>
+            <div className="login-success-progress" aria-hidden="true">
+              <span />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

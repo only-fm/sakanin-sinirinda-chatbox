@@ -161,6 +161,28 @@ export async function supabaseRequest<T>(
   const userId = await currentUserId();
   const query = url.searchParams;
 
+  if (route === '/auth/logout') {
+    const { error } = await client.auth.signOut();
+    throwIfError(error);
+    return { message: 'Oturum kapatıldı.' } as T;
+  }
+  if (route === '/auth/tutorial-complete') {
+    const { error } = await client.rpc('complete_user_tutorial');
+    throwIfError(error);
+    const profileResult = await client.from('profiles')
+      .select('id, username, role')
+      .eq('id', userId)
+      .single();
+    throwIfError(profileResult.error);
+    if (!profileResult.data) throw new Error('Profil bulunamadı.');
+    return {
+      id: userId,
+      username: profileResult.data.username,
+      role: profileResult.data.role === 'expert' ? 'teacher' : profileResult.data.role,
+      tutorialCompleted: true,
+    } as T;
+  }
+
   if (route === '/scenarios/manage' && method === 'POST' && body) {
     const { data, error } = await client.from('scenarios').insert({
       title: body.title,
@@ -370,22 +392,8 @@ export async function supabaseRequest<T>(
   }
 
   if (route === '/admin/users' || route.startsWith('/admin/users/')) {
-    const targetUserId = route.match(/^\/admin\/users\/([^/]+)$/)?.[1];
-    const action = method === 'GET'
-      ? 'list'
-      : method === 'POST'
-        ? 'create'
-        : method === 'PATCH'
-          ? 'update'
-          : method === 'DELETE'
-            ? 'delete'
-            : null;
-    if (!action || (action === 'list' && targetUserId)
-      || (action !== 'list' && action !== 'create' && !targetUserId)) {
-      throw new Error('Kullanıcı işlemi geçersiz.');
-    }
     const { data, error } = await client.functions.invoke('admin-users', {
-      body: { action, userId: targetUserId, user: body },
+      body: { method, path: url.pathname, user: body },
     });
     throwIfError(error);
     return data as T;

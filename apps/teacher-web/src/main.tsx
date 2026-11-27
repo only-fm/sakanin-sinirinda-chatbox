@@ -48,6 +48,18 @@ class ApiRequestError extends Error {
   }
 }
 
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
+
 async function request<T>(
   path: string,
   body?: object,
@@ -74,14 +86,7 @@ async function request<T>(
 let lastApiError: { status: number; message: string; at: string } | null = null;
 
 export function TeacherApp() {
-  const {
-    completeTutorial,
-    loading: authLoading,
-    profile,
-    role: authRole,
-    session: authSession,
-    signOut,
-  } = useAuth();
+  const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'questions' | 'scenarios'>('questions');
   const [questions, setQuestions] = useState<ExpertQuestion[]>([]);
@@ -205,8 +210,8 @@ export function TeacherApp() {
   async function logout() {
     setError('');
     try {
-      await signOut();
-      window.location.assign('/login');
+      await request('/auth/logout?role=teacher', {});
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -214,8 +219,8 @@ export function TeacherApp() {
 
   async function finishTutorial() {
     try {
-      completeTutorial();
-      setUser((current) => current ? { ...current, tutorialCompleted: true } : current);
+      const updated = await request<User>('/auth/tutorial-complete', {}, 'PATCH');
+      setUser(updated);
       setTutorialStep(null);
     } catch (cause: unknown) {
       setError(errorMessage(cause));
@@ -223,7 +228,7 @@ export function TeacherApp() {
   }
 
   useEffect(() => {
-    if (redirecting) window.location.replace('/login');
+    if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
   }, [redirecting]);
 
   function currentScreenLabel(): string {
@@ -260,7 +265,7 @@ export function TeacherApp() {
         {!loading && !redirecting && error && (
           <button
             className="primary-button"
-            onClick={() => window.location.assign('/login')}
+            onClick={() => window.location.assign(`${getLoginAppUrl()}/login`)}
             type="button"
           >
             Giriş sayfasına dön

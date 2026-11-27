@@ -110,6 +110,18 @@ class ApiRequestError extends Error {
   }
 }
 
+const LOGIN_APP_URL =
+  import.meta.env.VITE_LOGIN_APP_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5170' : 'http://localhost:8080');
+
+function getLoginAppUrl(): string {
+  const appUrl = new URL(LOGIN_APP_URL, window.location.origin);
+  if (['localhost', '127.0.0.1', '[::1]'].includes(appUrl.hostname)) {
+    appUrl.hostname = window.location.hostname;
+  }
+  return appUrl.origin;
+}
+
 async function request<T>(
   path: string,
   body?: object,
@@ -154,14 +166,7 @@ function emptyContent(): ScenarioContent {
 }
 
 export function AdminApp() {
-  const {
-    completeTutorial,
-    loading: authLoading,
-    profile,
-    role: authRole,
-    session: authSession,
-    signOut,
-  } = useAuth();
+  const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'accounts' | 'content' | 'logs' | 'questions' | 'reports' | 'responses'>('content');
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
@@ -227,7 +232,7 @@ export function AdminApp() {
   }, [authLoading, authRole, authSession, profile]);
 
   useEffect(() => {
-    if (redirecting) window.location.replace('/login');
+    if (redirecting) window.location.replace(`${getLoginAppUrl()}/login`);
   }, [redirecting]);
 
   useEffect(() => {
@@ -336,8 +341,8 @@ export function AdminApp() {
 
   async function finishTutorial() {
     try {
-      completeTutorial();
-      setUser((current) => current ? { ...current, tutorialCompleted: true } : current);
+      const updated = await request<User>('/auth/tutorial-complete', {}, 'PATCH');
+      setUser(updated);
       setTutorialStep(null);
     } catch (cause: unknown) {
       setError(errorMessage(cause));
@@ -545,8 +550,8 @@ export function AdminApp() {
   async function logout() {
     setError('');
     try {
-      await signOut();
-      window.location.assign('/login');
+      await request('/auth/logout?role=admin', {});
+      window.location.assign(getLoginAppUrl());
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -578,7 +583,7 @@ export function AdminApp() {
         {error && <p className="error" role="alert">{error}</p>}
         <button
           className="primary-button"
-          onClick={() => window.location.assign('/login')}
+          onClick={() => window.location.assign(`${getLoginAppUrl()}/login`)}
           type="button"
         >
           Giriş sayfasına dön

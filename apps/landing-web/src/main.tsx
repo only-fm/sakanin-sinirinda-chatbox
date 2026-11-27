@@ -9,8 +9,14 @@ export function LandingPage() {
   const navigate = useNavigate();
 
   const handleLoginClick = () => {
-    const rolePath = role === 'student' ? '/student' : role === 'expert' ? '/expert' : '/admin';
-    navigate(role ? rolePath : '/login');
+    const rolePath = role === 'student'
+      ? '/student'
+      : role === 'expert'
+        ? '/expert'
+        : role === 'admin'
+          ? '/admin'
+          : '/login';
+    navigate(rolePath);
   };
 
   const [scrolled, setScrolled] = useState(false);
@@ -44,7 +50,7 @@ export function LandingPage() {
         </nav>
         <div className="nav-actions">
           <PressableButton className="nav-login-btn" disabled={loading} hoverScale={0.97} onClick={handleLoginClick} pressScale={0.94} type="button">
-            {loading ? 'Kontrol ediliyor…' : role ? 'Panele Git' : 'Oturum Aç →'}
+            {loading ? 'Kontrol ediliyor…' : role && role !== 'user' ? 'Panele Git' : 'Oturum Aç →'}
           </PressableButton>
         </div>
       </header>
@@ -67,7 +73,7 @@ export function LandingPage() {
 
         <div className="hero-cta-group">
           <PressableButton className="primary-cta-btn" disabled={loading} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
-            <span>{loading ? 'Oturum kontrol ediliyor…' : role ? 'Panele Git' : 'Platforma Giriş Yap'}</span>
+            <span>{loading ? 'Oturum kontrol ediliyor…' : role && role !== 'user' ? 'Panele Git' : 'Platforma Giriş Yap'}</span>
             <span className="btn-icon">🚀</span>
           </PressableButton>
           <a className="secondary-cta-btn" href="#farklar">
@@ -199,7 +205,7 @@ export function LandingPage() {
           <h2>Farkındalık Yolculuğuna Başlamaya Hazır mısın?</h2>
           <p>Öğrenci, uzman veya yönetici hesabınla hemen oturum aç ve keşfetmeye başla.</p>
           <PressableButton className="primary-cta-btn pulse-glow" disabled={loading} hoverScale={0.98} onClick={handleLoginClick} pressScale={0.95} type="button">
-            <span>{loading ? 'Oturum kontrol ediliyor…' : role ? 'Panele Git' : 'Oturum Açma Sayfasına Git'}</span>
+            <span>{loading ? 'Oturum kontrol ediliyor…' : role && role !== 'user' ? 'Panele Git' : 'Oturum Açma Sayfasına Git'}</span>
             <span className="btn-icon">→</span>
           </PressableButton>
           {error && (

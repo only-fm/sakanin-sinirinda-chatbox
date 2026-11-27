@@ -7,14 +7,15 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabaseClient, supabaseConfigError } from '../supabaseClient';
 
 export type UserRole = 'student' | 'expert' | 'admin';
+export type AuthRole = UserRole | 'user';
 export type AuthProfile = {
   id: string;
   username: string;
-  role: UserRole;
+  role: AuthRole;
   email: string | null;
   tutorialCompleted: boolean;
 };
@@ -22,7 +23,7 @@ export type AuthProfile = {
 type AuthContextValue = {
   session: Session | null;
   profile: AuthProfile | null;
-  role: UserRole | null;
+  role: AuthRole | null;
   loading: boolean;
   error: string | null;
   signIn: (identifier: string, password: string, captchaToken: string) => Promise<AuthProfile>;
@@ -36,40 +37,52 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Beklenmeyen bir kimlik doğrulama hatası oluştu.';
 }
 
-async function fetchUserProfile(userId: string): Promise<AuthProfile> {
+function fallbackProfile(user: User): AuthProfile {
+  const username = user.user_metadata.username;
+  return {
+    id: user.id,
+    username: typeof username === 'string' && username
+      ? username
+      : user.email?.split('@')[0] || 'user',
+    role: 'user',
+    email: user.email ?? null,
+    tutorialCompleted: false,
+  };
+}
+
+async function fetchUserProfile(user: User): Promise<AuthProfile> {
   if (!supabaseClient) {
     throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
   }
 
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, username, role, email, tutorial_completed')
-    .eq('id', userId)
-    .maybeSingle();
+    .select('role, username, email')
+    .eq('id', user.id)
+    .single();
 
   if (error) {
+    if (error.code === 'PGRST116' && /0 rows/i.test(error.details ?? '')) {
+      return fallbackProfile(user);
+    }
     throw new Error(`Kullanıcı rolü okunamadı: ${error.message}`);
-  }
-  if (!data) {
-    throw new Error('Bu kullanıcı için profiles tablosunda rol kaydı bulunamadı.');
-  }
-  if (data.role !== 'student' && data.role !== 'expert' && data.role !== 'admin') {
-    throw new Error('Kullanıcı rolü student, expert veya admin olmalıdır.');
   }
 
   return {
-    id: data.id,
-    username: data.username,
-    role: data.role,
+    id: user.id,
+    username: data.username || fallbackProfile(user).username,
+    role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
+      ? data.role
+      : 'user',
     email: data.email,
-    tutorialCompleted: data.tutorial_completed,
+    tutorialCompleted: false,
   };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [role, setRole] = useState<AuthRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -88,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      const nextProfile = await fetchUserProfile(nextSession.user.id);
+      const nextProfile = await fetchUserProfile(nextSession.user);
       if (requestId.current === currentRequestId) {
         setProfile(nextProfile);
         setRole(nextProfile.role);

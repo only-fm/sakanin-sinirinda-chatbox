@@ -4,6 +4,7 @@ import { Turnstile } from '@marsidev/react-turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import type { AuthRole } from '../auth/AuthContext';
 import { supabaseConfigError } from '../supabaseClient';
 
 const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
@@ -14,8 +15,8 @@ type LoginLocationState = {
   };
 };
 
-function rolePath(role: 'student' | 'expert' | 'admin'): string {
-  return role === 'student' ? '/student' : role === 'expert' ? '/expert' : '/admin';
+function rolePath(role: AuthRole): string {
+  return role === 'student' ? '/student' : role === 'expert' ? '/expert' : role === 'admin' ? '/admin' : '/';
 }
 
 export function LoginPage() {
@@ -42,7 +43,7 @@ export function LoginPage() {
     }
   }, [profile?.email, profile?.role]);
 
-  if (!loading && role && !needsStudentEmail) {
+  if (!loading && role && role !== 'user' && !needsStudentEmail) {
     return <Navigate to={destination || rolePath(role)} replace />;
   }
 
@@ -57,6 +58,10 @@ export function LoginPage() {
     setFormError(null);
     try {
       const signedInProfile = await signIn(identifier, password, captchaToken);
+      if (signedInProfile.role === 'user') {
+        setFormError('Hesabınız doğrulandı ancak profil veya rol kaydı bulunamadı. Lütfen yöneticinizle iletişime geçin.');
+        return;
+      }
       if (signedInProfile.role === 'student' && !signedInProfile.email?.trim()) {
         setStudentEmail('');
         return;
@@ -122,6 +127,11 @@ export function LoginPage() {
         <Link className="auth-back-link" to="/">Tanıtım sayfasına dön</Link>
         {supabaseConfigError && <p className="auth-error" role="alert">{supabaseConfigError}</p>}
         {sessionError && <p className="auth-error" role="alert">{sessionError}</p>}
+        {session && role === 'user' && (
+          <p className="auth-error" role="alert">
+            Profil veya rol kaydı bulunamadı. Bu oturum korumalı panellere erişemez; yöneticinizle iletişime geçin.
+          </p>
+        )}
         {formError && <p className="auth-error" role="alert">{formError}</p>}
         {!turnstileSiteKey && (
           <p className="auth-error" role="alert">
@@ -129,7 +139,7 @@ export function LoginPage() {
           </p>
         )}
         {captchaError && <p className="auth-error" role="alert">{captchaError}</p>}
-        {session && !role && (
+        {session && (!role || role === 'user') && (
           <button className="auth-signout-button" disabled={signingOut} onClick={handleSignOut} type="button">
             {signingOut ? 'Oturum kapatılıyor…' : 'Oturumu Kapat'}
           </button>

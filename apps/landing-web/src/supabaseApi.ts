@@ -170,7 +170,7 @@ export async function supabaseRequest<T>(
     const { error } = await client.rpc('complete_user_tutorial');
     throwIfError(error);
     const profileResult = await client.from('profiles')
-      .select('id, username, role, tutorial_completed')
+      .select('id, username, role')
       .eq('id', userId)
       .single();
     throwIfError(profileResult.error);
@@ -179,7 +179,7 @@ export async function supabaseRequest<T>(
       id: userId,
       username: profileResult.data.username,
       role: profileResult.data.role === 'expert' ? 'teacher' : profileResult.data.role,
-      tutorialCompleted: profileResult.data.tutorial_completed,
+      tutorialCompleted: true,
     } as T;
   }
 

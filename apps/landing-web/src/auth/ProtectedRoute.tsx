@@ -32,7 +32,7 @@ export function ProtectedRoute({ allowedRole }: { allowedRole: UserRole }) {
         <section className="auth-card" role="alert">
           <h1>Bu panele erişim izniniz yok</h1>
           <p>Bu sayfa yalnızca {allowedRole} rolündeki kullanıcılar içindir.</p>
-          <Link to={role ? `/${role}` : '/'}>Kendi panelinize dönün</Link>
+          <Link to={role && role !== 'user' ? `/${role}` : '/'}>Kendi panelinize dönün</Link>
         </section>
       </main>
     );

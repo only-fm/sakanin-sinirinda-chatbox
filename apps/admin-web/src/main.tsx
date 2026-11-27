@@ -19,7 +19,6 @@ type ManagedUser = {
   id: string;
   username: string;
   role: User['role'];
-  createdAt: string;
 };
 
 type ExpertQuestion = {
@@ -807,14 +806,13 @@ export function AdminApp() {
           <div className="table-wrap account-table-wrap">
             <table className="account-table">
               <thead>
-                <tr><th>Kullanıcı adı</th><th>Tür</th><th>Oluşturulma</th><th /></tr>
+                <tr><th>Kullanıcı adı</th><th>Tür</th><th /></tr>
               </thead>
               <tbody>
                 {managedUsers.map((account) => (
                   <tr key={account.id}>
                     <td data-label="Kullanıcı adı">{account.username}</td>
                     <td data-label="Tür">{roleLabel(account.role)}</td>
-                    <td data-label="Oluşturulma">{formatDate(account.createdAt)}</td>
                     <td data-label="İşlemler">
                       <div className="table-actions">
                         <button className="text-button" onClick={() => editAccount(account)} type="button">
@@ -1363,10 +1361,6 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleString('tr-TR');
 }
 
-function apiResourceUrl(value: string): string {
-  return value;
-}
-
 function youtubeEmbedUrl(value: string): string | null {
   let url: URL;
   try {
@@ -1404,9 +1398,8 @@ function ScenarioMedia(props: { className: string; title: string; url: string })
     <video
       className={props.className}
       controls
-      crossOrigin={props.url.startsWith('/api/') ? 'use-credentials' : undefined}
       preload="metadata"
-      src={apiResourceUrl(props.url)}
+      src={props.url}
     />
   );
 }

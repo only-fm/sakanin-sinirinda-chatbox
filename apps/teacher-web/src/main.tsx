@@ -605,10 +605,6 @@ function problemReportContext(): Record<string, string> {
   return context;
 }
 
-function apiResourceUrl(value: string): string {
-  return value;
-}
-
 function youtubeEmbedUrl(value: string): string | null {
   let url: URL;
   try {
@@ -646,9 +642,8 @@ function ScenarioMedia(props: { className: string; title: string; url: string })
     <video
       className={props.className}
       controls
-      crossOrigin={props.url.startsWith('/api/') ? 'use-credentials' : undefined}
       preload="metadata"
-      src={apiResourceUrl(props.url)}
+      src={props.url}
     />
   );
 }

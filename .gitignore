@@ -6,7 +6,6 @@ coverage/
 !.env.example
 config/users.json
 /config/*
-!/config/users.example.json
 scenarios/videos/*
 !scenarios/videos/.gitkeep
 logs/

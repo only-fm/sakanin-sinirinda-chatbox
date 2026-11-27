@@ -92,13 +92,12 @@ Deno.serve(async (request) => {
 
     if (!id && action === 'GET') {
       const { data, error } = await adminClient.from('profiles')
-        .select('id, username, role, created_at').order('created_at', { ascending: false });
+        .select('id, username, role').order('username', { ascending: true });
       if (error) throw error;
       return response(200, (data ?? []).map((profile) => ({
         id: profile.id,
         username: profile.username,
         role: profile.role === 'expert' ? 'teacher' : profile.role,
-        createdAt: profile.created_at,
       })));
     }
 
@@ -127,7 +126,7 @@ Deno.serve(async (request) => {
       const profile = await adminClient.from('profiles').update({
         username,
         role: databaseRole(input.role),
-      }).eq('id', created.data.user.id).select('id, username, role, created_at').single();
+      }).eq('id', created.data.user.id).select('id, username, role').single();
       if (profile.error) {
         const rollback = await adminClient.auth.admin.deleteUser(created.data.user.id);
         if (rollback.error) {
@@ -140,7 +139,6 @@ Deno.serve(async (request) => {
         id: profile.data.id,
         username: profile.data.username,
         role: input.role,
-        createdAt: profile.data.created_at,
       });
     }
 
@@ -200,7 +198,7 @@ Deno.serve(async (request) => {
     if (input.username !== undefined) profileUpdate.username = username;
     if (input.role !== undefined) profileUpdate.role = databaseRole(input.role);
     const updated = await adminClient.from('profiles').update(profileUpdate)
-      .eq('id', id).select('id, username, role, created_at').single();
+      .eq('id', id).select('id, username, role').single();
     if (updated.error) throw updated.error;
     await logAudit('account.updated', id, {
       ...(input.username === undefined ? {} : { username: updated.data.username }),
@@ -211,7 +209,6 @@ Deno.serve(async (request) => {
       id: updated.data.id,
       username: updated.data.username,
       role: updated.data.role === 'expert' ? 'teacher' : updated.data.role,
-      createdAt: updated.data.created_at,
     });
   } catch (error) {
     const status = typeof error === 'object' && error !== null && 'status' in error

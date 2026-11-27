@@ -53,10 +53,9 @@ Gerekli migration'ları projeye uygulayın:
 ```bash
 supabase link --project-ref <project-ref>
 supabase db push
-supabase functions deploy admin-users
 ```
 
-Yönetici panelindeki hesap oluşturma, güncelleme ve silme işlemleri yetki yükseltme gerektirdiği için `admin-users` Edge Function'ını kullanır. Bu fonksiyonun Supabase ortamında `SUPABASE_URL`, `SUPABASE_ANON_KEY` ve `SUPABASE_SERVICE_ROLE_KEY` secret'ları tanımlı olmalıdır. Service-role anahtarı yalnızca Edge Function ortamında kalmalıdır.
+Kullanıcı hesaplarını Supabase Dashboard > Authentication > Users bölümünden yönetin. Yeni Auth kullanıcısı için profil kaydı veritabanı tetikleyicisiyle oluşturulur; yönetici rolünü gerektiğinde SQL Editor'dan `public.profiles.role` alanında atayın.
 
 İlk yönetici Auth kullanıcısını Supabase Dashboard > Authentication > Users bölümünden oluşturun. SQL Editor'da ilgili `public.profiles.id` kaydının rolünü tek seferlik `admin` yapın.
 
@@ -64,4 +63,4 @@ Giriş bot koruması için Turnstile widget site key'ini `VITE_TURNSTILE_SITE_KE
 
 ## Netlify dağıtımı
 
-Netlify'da `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlayın. Netlify build ayarı `netlify.toml` dosyasında yapılandırılmıştır. Supabase migration'larını ve `admin-users` Edge Function'ını dağıtımdan önce uygulayın.
+Netlify'da `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlayın. Netlify build ayarı `netlify.toml` dosyasında yapılandırılmıştır. Supabase migration'larını dağıtımdan önce uygulayın.

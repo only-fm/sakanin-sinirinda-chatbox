@@ -380,12 +380,16 @@ export async function supabaseRequest<T>(
     return data as T;
   }
 
-  if (route === '/admin/users' || route.startsWith('/admin/users/')) {
-    const { data, error } = await client.functions.invoke('admin-users', {
-      body: { method, path: url.pathname, user: body },
-    });
+  if (route === '/admin/profiles' && method === 'GET') {
+    const { data, error } = await client.from('profiles')
+      .select('id, username, role')
+      .order('username', { ascending: true });
     throwIfError(error);
-    return data as T;
+    return (data ?? []).map((profile) => ({
+      id: profile.id,
+      username: profile.username,
+      role: profile.role === 'expert' ? 'teacher' : profile.role,
+    })) as T;
   }
 
   if (route === '/admin/audit-logs' && method === 'GET') {

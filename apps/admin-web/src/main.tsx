@@ -15,7 +15,7 @@ type User = {
   tutorialCompleted: boolean;
 };
 
-type ManagedUser = {
+type ProfileSummary = {
   id: string;
   username: string;
   role: User['role'];
@@ -168,9 +168,9 @@ function emptyContent(): ScenarioContent {
 export function AdminApp() {
   const { loading: authLoading, profile, role: authRole, session: authSession } = useAuth();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'accounts' | 'content' | 'logs' | 'questions' | 'reports' | 'responses'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'logs' | 'questions' | 'reports' | 'responses'>('content');
   const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
-  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
+  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [expertQuestions, setExpertQuestions] = useState<ExpertQuestion[]>([]);
   const [studentResponses, setStudentResponses] = useState<StudentResponse[]>([]);
@@ -181,12 +181,6 @@ export function AdminApp() {
   const [auditOffset, setAuditOffset] = useState(0);
   const [responseUserId, setResponseUserId] = useState('');
   const [responseScenarioId, setResponseScenarioId] = useState('');
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [accountForm, setAccountForm] = useState<{
-    username: string;
-    password: string;
-    role: User['role'];
-  }>({ username: '', password: '', role: 'student' });
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<'draft' | 'published' | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState('');
@@ -197,7 +191,6 @@ export function AdminApp() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
-  const [accountSaving, setAccountSaving] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
@@ -239,7 +232,7 @@ export function AdminApp() {
   useEffect(() => {
     if (user) {
       void refreshScenarios();
-      void refreshUsers();
+      void refreshProfiles();
       void refreshAuditLogs();
       void refreshExpertQuestions();
       void refreshStudentResponses();
@@ -267,9 +260,9 @@ export function AdminApp() {
     }
   }
 
-  async function refreshUsers() {
+  async function refreshProfiles() {
     try {
-      setManagedUsers(await request<ManagedUser[]>('/admin/users'));
+      setProfiles(await request<ProfileSummary[]>('/admin/profiles'));
     } catch (cause: unknown) {
       setError(errorMessage(cause));
     }
@@ -351,43 +344,6 @@ export function AdminApp() {
     } catch (cause: unknown) {
       setTutorialError(errorMessage(cause));
     }
-  }
-
-  async function saveAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAccountSaving(true);
-    setError('');
-    setMessage('');
-    const body = editingUserId
-      ? {
-          username: accountForm.username,
-          role: accountForm.role,
-          ...(accountForm.password ? { password: accountForm.password } : {}),
-        }
-      : accountForm;
-    try {
-      await request<ManagedUser>(
-        editingUserId ? `/admin/users/${editingUserId}` : '/admin/users',
-        body,
-        editingUserId ? 'PATCH' : 'POST',
-      );
-      setMessage(editingUserId ? 'Hesap bilgileri güncellendi.' : 'Hesap oluşturuldu.');
-      setAccountForm({ username: '', password: '', role: 'student' });
-      setEditingUserId(null);
-      await refreshUsers();
-      await refreshAuditLogs();
-    } catch (cause: unknown) {
-      setError(errorMessage(cause));
-    } finally {
-      setAccountSaving(false);
-    }
-  }
-
-  function editAccount(account: ManagedUser) {
-    setEditingUserId(account.id);
-    setAccountForm({ username: account.username, password: '', role: account.role });
-    setError('');
-    setMessage('');
   }
 
   async function loadScenario(id: string) {
@@ -505,27 +461,6 @@ export function AdminApp() {
     }
   }
 
-  async function deleteAccount(account: ManagedUser) {
-    if (account.id === user?.id) {
-      setError('Kullanmakta olduğun yönetici hesabını silemezsin.');
-      return;
-    }
-    if (!window.confirm(
-      `${account.username} hesabı Supabase Auth'tan ve ilişkili verilerden kalıcı olarak silinecek. Devam edilsin mi?`,
-    )) return;
-    setError('');
-    setMessage('');
-    try {
-      await request(`/admin/users/${account.id}`, undefined, 'DELETE');
-      setMessage(`${account.username} hesabı silindi.`);
-      await refreshUsers();
-      await refreshStudentResponses();
-      await refreshAuditLogs();
-    } catch (cause: unknown) {
-      setError(errorMessage(cause));
-    }
-  }
-
   async function uploadScenarioVideo(file: File, scenarioId: string | null = currentId) {
     if (!scenarioId) {
       setPendingVideo(file);
@@ -598,8 +533,7 @@ export function AdminApp() {
 
   const isPublished = currentStatus === 'published';
   const tutorialSteps = [
-    { title: 'Hoş geldin', text: 'Bu menüden hesapları, senaryoları, uzman sorularını, öğrenci yanıtlarını ve işlem kayıtlarını yönetebilirsin.' },
-    { title: 'Hesaplar', text: 'Hesapları Supabase Auth üzerinden oluşturup düzenleyebilir veya silebilirsin. Parolalar Supabase Auth tarafından güvenli biçimde yönetilir.' },
+    { title: 'Hoş geldin', text: 'Bu menüden senaryoları, uzman sorularını, öğrenci yanıtlarını ve işlem kayıtlarını yönetebilirsin. Kullanıcı hesaplarını Supabase Dashboard üzerinden yönet.' },
     { title: 'Senaryolar', text: 'Taslak hazırla, video URL’si ekle veya sunucuya video yükle; yayımla ya da yayımlanmış senaryoyu tamamen sil.' },
     { title: 'Öğrenci değerlendirmeleri', text: 'Şaka/zorbalık seçimini, gerekçeyi ve her soruya verilen yanıtı kullanıcı ya da senaryoya göre inceleyebilirsin.' },
     { title: 'Uzman soruları', text: 'Öğrencilerin uzmana ilettiği soruları bu bölümden inceleyebilirsin.' },
@@ -628,17 +562,6 @@ export function AdminApp() {
             type="button"
           >
             <span aria-hidden="true">▤</span> Öğrenci içerikleri
-          </PressableButton>
-          <PressableButton
-            aria-current={activeTab === 'accounts' ? 'page' : undefined}
-            className={activeTab === 'accounts' ? 'admin-tab active' : 'admin-tab'}
-            hoverScale={0.99}
-            id="nav-accounts"
-            onClick={() => { setActiveTab('accounts'); setError(''); setMessage(''); setSidebarOpen(false); }}
-            pressScale={0.97}
-            type="button"
-          >
-            <span aria-hidden="true">♙</span> Hesaplar
           </PressableButton>
           <PressableButton
             aria-current={activeTab === 'questions' ? 'page' : undefined}
@@ -736,106 +659,6 @@ export function AdminApp() {
           {message && <p className="success" role="status">{message}</p>}
           {error && <p className="error" role="alert">{error}</p>}
         </>
-      )}
-
-      {activeTab === 'accounts' && (
-        <section className="management-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Kullanıcı yönetimi</p>
-              <h2>{editingUserId ? 'Hesabı düzenle' : 'Yeni hesap oluştur'}</h2>
-            </div>
-          </div>
-          <form className="account-form" onSubmit={(event) => void saveAccount(event)}>
-            <label htmlFor="account-username">Kullanıcı adı</label>
-            <input
-              autoComplete="off"
-              id="account-username"
-              maxLength={32}
-              minLength={3}
-              onChange={(event) => setAccountForm({ ...accountForm, username: event.target.value })}
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}"
-              required
-              value={accountForm.username}
-            />
-            <label htmlFor="account-role">Hesap türü</label>
-            <select
-              disabled={Boolean(editingUserId)}
-              id="account-role"
-              onChange={(event) => setAccountForm({
-                ...accountForm,
-                    role:
-                      event.target.value === 'teacher' || event.target.value === 'admin'
-                        ? event.target.value
-                        : 'student',
-                  })}
-              value={accountForm.role}
-            >
-              <option value="student">Öğrenci</option>
-              <option value="teacher">Uzman</option>
-              <option value="admin">Admin</option>
-            </select>
-            <label htmlFor="account-password">
-              {editingUserId ? 'Yeni parola (değiştirmeyeceksen boş bırak)' : 'Parola'}
-            </label>
-            <input
-              autoComplete="new-password"
-              id="account-password"
-              minLength={accountForm.password || !editingUserId ? 1 : undefined}
-              onChange={(event) => setAccountForm({ ...accountForm, password: event.target.value })}
-              required={!editingUserId}
-              type="password"
-              value={accountForm.password}
-            />
-            <p className="hint">Parola en fazla 128 karakter olabilir. Parolalar ve hash'leri loglara yazılmaz.</p>
-            <div className="form-actions">
-              <button className="primary-button" disabled={accountSaving} type="submit">
-                {accountSaving ? 'Kaydediliyor…' : editingUserId ? 'Değişiklikleri kaydet' : 'Hesap oluştur'}
-              </button>
-              {editingUserId && (
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    setEditingUserId(null);
-                    setAccountForm({ username: '', password: '', role: 'student' });
-                  }}
-                  type="button"
-                >
-                  Vazgeç
-                </button>
-              )}
-            </div>
-          </form>
-
-          <div className="table-wrap account-table-wrap">
-            <table className="account-table">
-              <thead>
-                <tr><th>Kullanıcı adı</th><th>Tür</th><th /></tr>
-              </thead>
-              <tbody>
-                {managedUsers.map((account) => (
-                  <tr key={account.id}>
-                    <td data-label="Kullanıcı adı">{account.username}</td>
-                    <td data-label="Tür">{roleLabel(account.role)}</td>
-                    <td data-label="İşlemler">
-                      <div className="table-actions">
-                        <button className="text-button" onClick={() => editAccount(account)} type="button">
-                          Düzenle
-                        </button>
-                        <button className="text-button danger-text" onClick={() => void deleteAccount(account)} type="button">
-                          Sil
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {managedUsers.length === 0 && (
-                  <tr><td className="muted" colSpan={4}>Henüz hesap yok.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
       )}
 
       {activeTab === 'content' && <div className="admin-layout">
@@ -1112,8 +935,8 @@ export function AdminApp() {
               Kullanıcı
               <select onChange={(event) => setResponseUserId(event.target.value)} value={responseUserId}>
                 <option value="">Tüm kullanıcılar</option>
-                {managedUsers.filter((account) => account.role === 'student').map((account) => (
-                  <option key={account.id} value={account.id}>{account.username}</option>
+                {profiles.filter((profile) => profile.role === 'student').map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.username}</option>
                 ))}
               </select>
             </label>
@@ -1178,8 +1001,8 @@ export function AdminApp() {
             Kullanıcıya göre filtrele
             <select onChange={(event) => setAuditUserId(event.target.value)} value={auditUserId}>
               <option value="">Tüm kullanıcılar</option>
-              {managedUsers.map((account) => (
-                <option key={account.id} value={account.id}>{account.username}</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.username}</option>
               ))}
             </select>
           </label>
@@ -1418,7 +1241,6 @@ function AdminTutorial(props: {
 }) {
   const targets = [
     'nav-content',
-    'nav-accounts',
     'new-scenario',
     'nav-responses',
     'nav-questions',

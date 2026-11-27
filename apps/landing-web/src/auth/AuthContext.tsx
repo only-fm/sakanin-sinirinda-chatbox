@@ -20,9 +20,15 @@ export type AuthProfile = {
   tutorialCompleted: boolean;
 };
 
+type ProfileReadError = {
+  message: string;
+  code: string | null;
+};
+
 type AuthContextValue = {
   session: Session | null;
   profile: AuthProfile | null;
+  profileError: ProfileReadError | null;
   role: AuthRole | null;
   loading: boolean;
   error: string | null;
@@ -50,7 +56,7 @@ function fallbackProfile(user: User): AuthProfile {
   };
 }
 
-async function fetchUserProfile(user: User): Promise<AuthProfile> {
+async function fetchUserProfile(user: User): Promise<{ profile: AuthProfile; error: ProfileReadError | null }> {
   if (!supabaseClient) {
     throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
   }
@@ -63,31 +69,39 @@ async function fetchUserProfile(user: User): Promise<AuthProfile> {
       .single();
 
     if (error) {
+      const profileError = { message: error.message, code: error.code };
       if (error.code === 'PGRST116' && /0 rows/i.test(error.details ?? '')) {
-        return fallbackProfile(user);
+        return { profile: fallbackProfile(user), error: profileError };
       }
       console.warn('Kullanıcı profili okunamadı; standart kullanıcı rolüyle devam ediliyor.', error);
-      return fallbackProfile(user);
+      return { profile: fallbackProfile(user), error: profileError };
     }
 
     return {
-      id: user.id,
-      username: data.username || fallbackProfile(user).username,
-      role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
-        ? data.role
-        : 'user',
-      email: data.email,
-      tutorialCompleted: false,
+      profile: {
+        id: user.id,
+        username: data.username || fallbackProfile(user).username,
+        role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
+          ? data.role
+          : 'user',
+        email: data.email,
+        tutorialCompleted: false,
+      },
+      error: null,
     };
   } catch (error) {
     console.warn('Kullanıcı profili okunamadı; standart kullanıcı rolüyle devam ediliyor.', error);
-    return fallbackProfile(user);
+    return {
+      profile: fallbackProfile(user),
+      error: { message: getErrorMessage(error), code: null },
+    };
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
+  const [profileError, setProfileError] = useState<ProfileReadError | null>(null);
   const [role, setRole] = useState<AuthRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentRequestId = ++requestId.current;
     setSession(nextSession);
     setProfile(null);
+    setProfileError(null);
     setRole(null);
     setError(null);
 
@@ -107,12 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      const nextProfile = await fetchUserProfile(nextSession.user);
+      const result = await fetchUserProfile(nextSession.user);
       if (requestId.current === currentRequestId) {
-        setProfile(nextProfile);
-        setRole(nextProfile.role);
+        setProfile(result.profile);
+        setProfileError(result.error);
+        setRole(result.profile.role);
       }
-      return nextProfile;
+      return result.profile;
     } catch (loadError) {
       if (requestId.current === currentRequestId) {
         setError(getErrorMessage(loadError));
@@ -247,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, role, loading, error, signIn, saveStudentEmail, signOut }}>
+    <AuthContext.Provider value={{ session, profile, profileError, role, loading, error, signIn, saveStudentEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

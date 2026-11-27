@@ -20,7 +20,7 @@ function rolePath(role: AuthRole): string {
 }
 
 export function LoginPage() {
-  const { error: sessionError, loading, profile, role, session, saveStudentEmail, signIn, signOut } = useAuth();
+  const { error: sessionError, loading, profile, profileError, role, session, saveStudentEmail, signIn, signOut } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
@@ -130,6 +130,11 @@ export function LoginPage() {
         {session && role === 'user' && (
           <p className="auth-error" role="alert">
             Profil veya rol kaydı bulunamadı. Bu oturum korumalı panellere erişemez; yöneticinizle iletişime geçin.
+          </p>
+        )}
+        {session && role === 'user' && profileError && (
+          <p className="auth-error" role="alert">
+            Supabase error.message: {profileError.message}; error.code: {profileError.code ?? 'bilinmiyor'}
           </p>
         )}
         {formError && <p className="auth-error" role="alert">{formError}</p>}

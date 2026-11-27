@@ -55,28 +55,34 @@ async function fetchUserProfile(user: User): Promise<AuthProfile> {
     throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
   }
 
-  const { data, error } = await supabaseClient
-    .from('profiles')
-    .select('role, username, email')
-    .eq('id', user.id)
-    .single();
+  try {
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('role, username, email')
+      .eq('id', user.id)
+      .single();
 
-  if (error) {
-    if (error.code === 'PGRST116' && /0 rows/i.test(error.details ?? '')) {
+    if (error) {
+      if (error.code === 'PGRST116' && /0 rows/i.test(error.details ?? '')) {
+        return fallbackProfile(user);
+      }
+      console.warn('Kullanıcı profili okunamadı; standart kullanıcı rolüyle devam ediliyor.', error);
       return fallbackProfile(user);
     }
-    throw new Error(`Kullanıcı rolü okunamadı: ${error.message}`);
-  }
 
-  return {
-    id: user.id,
-    username: data.username || fallbackProfile(user).username,
-    role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
-      ? data.role
-      : 'user',
-    email: data.email,
-    tutorialCompleted: false,
-  };
+    return {
+      id: user.id,
+      username: data.username || fallbackProfile(user).username,
+      role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
+        ? data.role
+        : 'user',
+      email: data.email,
+      tutorialCompleted: false,
+    };
+  } catch (error) {
+    console.warn('Kullanıcı profili okunamadı; standart kullanıcı rolüyle devam ediliyor.', error);
+    return fallbackProfile(user);
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

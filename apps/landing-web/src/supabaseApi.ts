@@ -169,18 +169,7 @@ export async function supabaseRequest<T>(
   if (route === '/auth/tutorial-complete') {
     const { error } = await client.rpc('complete_user_tutorial');
     throwIfError(error);
-    const profileResult = await client.from('profiles')
-      .select('id, username, role')
-      .eq('id', userId)
-      .single();
-    throwIfError(profileResult.error);
-    if (!profileResult.data) throw new Error('Profil bulunamadı.');
-    return {
-      id: userId,
-      username: profileResult.data.username,
-      role: profileResult.data.role === 'expert' ? 'teacher' : profileResult.data.role,
-      tutorialCompleted: true,
-    } as T;
+    return { tutorialCompleted: true } as T;
   }
 
   if (route === '/scenarios/manage' && method === 'POST' && body) {

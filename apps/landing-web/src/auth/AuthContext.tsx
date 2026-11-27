@@ -64,7 +64,7 @@ async function fetchUserProfile(user: User): Promise<{ profile: AuthProfile; err
   try {
     const { data, error } = await supabaseClient
       .from('profiles')
-      .select('role, username, email')
+      .select('role, username, email, tutorial_completed')
       .eq('id', user.id)
       .single();
 
@@ -85,7 +85,7 @@ async function fetchUserProfile(user: User): Promise<{ profile: AuthProfile; err
           ? data.role
           : 'user',
         email: data.email,
-        tutorialCompleted: false,
+        tutorialCompleted: data.tutorial_completed,
       },
       error: null,
     };

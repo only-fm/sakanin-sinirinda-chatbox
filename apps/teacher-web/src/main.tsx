@@ -219,8 +219,10 @@ export function TeacherApp() {
 
   async function finishTutorial() {
     try {
-      const updated = await request<User>('/auth/tutorial-complete', {}, 'PATCH');
-      setUser(updated);
+      await request('/auth/tutorial-complete', {}, 'PATCH');
+      setUser((currentUser) => currentUser
+        ? { ...currentUser, tutorialCompleted: true }
+        : currentUser);
       setTutorialStep(null);
     } catch (cause: unknown) {
       setError(errorMessage(cause));

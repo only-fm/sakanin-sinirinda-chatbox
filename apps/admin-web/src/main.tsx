@@ -201,6 +201,7 @@ export function AdminApp() {
   const [redirecting, setRedirecting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [tutorialError, setTutorialError] = useState('');
 
   useEffect(() => {
     const viewport = window.matchMedia('(max-width: 760px)');
@@ -340,12 +341,15 @@ export function AdminApp() {
   }
 
   async function finishTutorial() {
+    setTutorialError('');
     try {
-      const updated = await request<User>('/auth/tutorial-complete', {}, 'PATCH');
-      setUser(updated);
+      await request('/auth/tutorial-complete', {}, 'PATCH');
+      setUser((currentUser) => currentUser
+        ? { ...currentUser, tutorialCompleted: true }
+        : currentUser);
       setTutorialStep(null);
     } catch (cause: unknown) {
-      setError(errorMessage(cause));
+      setTutorialError(errorMessage(cause));
     }
   }
 
@@ -1340,6 +1344,7 @@ export function AdminApp() {
         <AdminTutorial
           step={tutorialStep}
           steps={tutorialSteps}
+          error={tutorialError}
           onFinish={() => void finishTutorial()}
           onNext={() => setTutorialStep((step) => (step ?? 0) + 1)}
         />
@@ -1407,6 +1412,7 @@ function ScenarioMedia(props: { className: string; title: string; url: string })
 function AdminTutorial(props: {
   step: number;
   steps: Array<{ title: string; text: string }>;
+  error: string;
   onNext: () => void;
   onFinish: () => void;
 }) {
@@ -1466,6 +1472,7 @@ function AdminTutorial(props: {
       <p className="eyebrow">REHBER · {Math.min(props.step + 1, props.steps.length)}/{props.steps.length}</p>
       <h2>{current.title}</h2>
       <p>{current.text}</p>
+      {props.error && <p className="error" role="alert">{props.error}</p>}
       <div className="tutorial-actions">
         <button className="text-button" onClick={props.onFinish} type="button">Atla</button>
         <button

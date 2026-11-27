@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
@@ -20,12 +20,9 @@ function rolePath(role: AuthRole): string {
 }
 
 export function LoginPage() {
-  const { error: sessionError, loading, profile, profileError, role, session, saveStudentEmail, signIn, signOut } = useAuth();
+  const { error: sessionError, loading, profile, profileError, role, session, signIn, signOut } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [studentEmail, setStudentEmail] = useState('');
-  const [savingStudentEmail, setSavingStudentEmail] = useState(false);
-  const [studentEmailError, setStudentEmailError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -35,15 +32,10 @@ export function LoginPage() {
   const navigate = useNavigate();
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
   const destination = (location.state as LoginLocationState | null)?.from?.pathname;
-  const needsStudentEmail = profile?.role === 'student' && !profile.email?.trim();
+  const needsStudentOnboarding = profile?.role === 'student'
+    && (profile.isFirstLogin || !profile.emailVerified);
 
-  useEffect(() => {
-    if (profile?.role === 'student' && profile.email) {
-      setStudentEmail(profile.email);
-    }
-  }, [profile?.email, profile?.role]);
-
-  if (!loading && role && role !== 'user' && !needsStudentEmail) {
+  if (!loading && role && role !== 'user' && !needsStudentOnboarding) {
     return <Navigate to={destination || rolePath(role)} replace />;
   }
 
@@ -62,8 +54,8 @@ export function LoginPage() {
         setFormError('Hesabınız doğrulandı ancak profil veya rol kaydı bulunamadı. Lütfen yöneticinizle iletişime geçin.');
         return;
       }
-      if (signedInProfile.role === 'student' && !signedInProfile.email?.trim()) {
-        setStudentEmail('');
+      if (signedInProfile.role === 'student'
+        && (signedInProfile.isFirstLogin || !signedInProfile.emailVerified)) {
         return;
       }
       navigate(destination || rolePath(signedInProfile.role), { replace: true });
@@ -73,20 +65,6 @@ export function LoginPage() {
       setSubmitting(false);
       setCaptchaToken(null);
       turnstileRef.current?.reset();
-    }
-  }
-
-  async function handleStudentEmailSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSavingStudentEmail(true);
-    setStudentEmailError(null);
-    try {
-      await saveStudentEmail(studentEmail);
-      navigate('/student', { replace: true });
-    } catch (saveError) {
-      setStudentEmailError(saveError instanceof Error ? saveError.message : 'E-posta kaydedilemedi.');
-    } finally {
-      setSavingStudentEmail(false);
     }
   }
 
@@ -196,35 +174,6 @@ export function LoginPage() {
           </button>
         </form>
       </section>
-      {needsStudentEmail && (
-        <div className="onboarding-backdrop">
-          <section
-            aria-labelledby="student-email-title"
-            aria-modal="true"
-            className="onboarding-modal"
-            role="dialog"
-          >
-            <h2 id="student-email-title">E-posta adresini ekle</h2>
-            <p>Öğrenci hesabını tamamlamak için e-posta adresini paylaş.</p>
-            {studentEmailError && <p className="auth-error" role="alert">{studentEmailError}</p>}
-            <form className="auth-form" onSubmit={(event) => void handleStudentEmailSubmit(event)}>
-              <label htmlFor="student-email">E-posta</label>
-              <input
-                autoComplete="email"
-                id="student-email"
-                maxLength={254}
-                onChange={(event) => setStudentEmail(event.target.value)}
-                required
-                type="email"
-                value={studentEmail}
-              />
-              <button className="primary-button" disabled={savingStudentEmail} type="submit">
-                {savingStudentEmail ? 'Kaydediliyor…' : 'Kaydet ve devam et'}
-              </button>
-            </form>
-          </section>
-        </div>
-      )}
     </main>
   );
 }

@@ -38,7 +38,7 @@ export function ProtectedRoute({ allowedRole }: { allowedRole: UserRole }) {
     );
   }
 
-  if (role === 'student' && !profile?.email?.trim()) {
+  if (role === 'student' && (profile?.isFirstLogin || !profile?.emailVerified)) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { StudentEmailOnboarding } from './auth/StudentEmailOnboarding';
 import { LandingPage } from './main';
 import { LoginPage } from './pages/LoginPage';
 import { AdminApp } from '../../admin-web/src/main';
@@ -21,6 +22,7 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <StudentEmailOnboarding />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />

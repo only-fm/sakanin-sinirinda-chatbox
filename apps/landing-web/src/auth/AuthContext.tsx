@@ -16,7 +16,9 @@ export type AuthProfile = {
   id: string;
   username: string;
   role: AuthRole;
-  email: string | null;
+  realEmail: string | null;
+  emailVerified: boolean;
+  isFirstLogin: boolean;
   tutorialCompleted: boolean;
 };
 
@@ -33,7 +35,7 @@ type AuthContextValue = {
   loading: boolean;
   error: string | null;
   signIn: (identifier: string, password: string, captchaToken: string) => Promise<AuthProfile>;
-  saveStudentEmail: (email: string) => Promise<void>;
+  completeStudentEmailOnboarding: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -51,7 +53,9 @@ function fallbackProfile(user: User): AuthProfile {
       ? username
       : user.email?.split('@')[0] || 'user',
     role: 'user',
-    email: user.email ?? null,
+    realEmail: null,
+    emailVerified: false,
+    isFirstLogin: true,
     tutorialCompleted: false,
   };
 }
@@ -64,7 +68,7 @@ async function fetchUserProfile(user: User): Promise<{ profile: AuthProfile; err
   try {
     const { data, error } = await supabaseClient
       .from('profiles')
-      .select('role, username, email, tutorial_completed')
+      .select('role, username, real_email, email_verified, is_first_login, tutorial_completed')
       .eq('id', user.id)
       .single();
 
@@ -84,7 +88,9 @@ async function fetchUserProfile(user: User): Promise<{ profile: AuthProfile; err
         role: data.role === 'student' || data.role === 'expert' || data.role === 'admin'
           ? data.role
           : 'user',
-        email: data.email,
+        realEmail: data.real_email,
+        emailVerified: data.email_verified,
+        isFirstLogin: data.is_first_login,
         tutorialCompleted: data.tutorial_completed,
       },
       error: null,
@@ -222,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextProfile;
   }, [loadSession]);
 
-  const saveStudentEmail = useCallback(async (email: string) => {
+  const completeStudentEmailOnboarding = useCallback(async (email: string) => {
     if (!supabaseClient || !session) {
       throw new Error(supabaseConfigError ?? 'E-posta kaydetmek için oturum açmalısınız.');
     }
@@ -237,19 +243,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data, error: updateError } = await supabaseClient
       .from('profiles')
-      .update({ email: normalizedEmail })
+      .update({
+        real_email: normalizedEmail,
+        email_verified: true,
+        is_first_login: false,
+      })
       .eq('id', session.user.id)
-      .is('email', null)
-      .select('email')
+      .select('real_email, email_verified, is_first_login')
       .maybeSingle();
 
     if (updateError) throw new Error(`E-posta kaydedilemedi: ${updateError.message}`);
     if (!data) {
-      throw new Error('E-posta kaydedilemedi. Profil zaten güncellenmiş olabilir; lütfen sayfayı yenileyin.');
+      throw new Error('E-posta kaydedilemedi. Profil bulunamadı; lütfen yeniden giriş yapın.');
     }
 
     setProfile((currentProfile) => currentProfile
-      ? { ...currentProfile, email: data.email }
+      ? {
+        ...currentProfile,
+        realEmail: data.real_email,
+        emailVerified: data.email_verified,
+        isFirstLogin: data.is_first_login,
+      }
       : currentProfile);
   }, [profile?.role, session]);
 
@@ -263,7 +277,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, profileError, role, loading, error, signIn, saveStudentEmail, signOut }}>
+    <AuthContext.Provider value={{
+      session,
+      profile,
+      profileError,
+      role,
+      loading,
+      error,
+      signIn,
+      completeStudentEmailOnboarding,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -170,12 +170,11 @@ Giriş ve korumalı rota kontrolü, `auth.users.id` ile eşleşen `public.profil
 supabase link --project-ref <project-ref>
 supabase db push
 supabase functions deploy admin-users
-supabase functions deploy email-login
 ```
 
 `profiles` kullanıcı/rol altyapısını SQL Editor üzerinden kurmak veya yenilemek için `supabase/user_management.sql` dosyasının tamamını çalıştırın. Bu betik `profiles` tablosunu, yeni Auth kullanıcıları için öğrenci profili oluşturan trigger'ı ve rol alanının istemciden değiştirilemediği RLS politikalarını kurar. Uygulamanın diğer tabloları için migration'ları ayrıca `supabase db push` ile uygulayın.
 
-Öğrencinin `profiles.email` alanı boşsa ilk girişte e-posta toplama penceresi gösterilir. E-posta kaydedilmeden öğrenci paneline erişilemez; profil sahibi yalnızca kendi e-posta alanını güncelleyebilir. Kullanıcı adıyla veya bu alana kaydedilen e-posta adresiyle giriş yapılabilir. E-posta girişinde `email-login` Edge Function, adresi Auth hesabına sunucu tarafında eşler ve yalnızca parola doğrulanınca oturum döndürür; e-posta adresleri benzersiz olmalıdır.
+Öğrencinin `profiles.email` alanı boşsa ilk girişte e-posta toplama penceresi gösterilir. E-posta kaydedilmeden öğrenci paneline erişilemez; profil sahibi yalnızca kendi e-posta alanını güncelleyebilir. Giriş, doğrudan Supabase Auth parola doğrulamasıyla yapılır: `@` içeren değer e-posta olarak, diğer değerler kullanıcı adına bağlı dahili Auth e-posta takma adı olarak kullanılır. `profiles.email` iletişim adresidir; girişte kullanılacak e-posta, Auth hesabındaki e-posta adresi olmalıdır.
 
 İlk Auth kullanıcısını oluşturduktan sonra SQL Editor'da kimliğini kontrol edip tek seferlik yükseltin:
 

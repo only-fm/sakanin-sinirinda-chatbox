@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
-import { FunctionsHttpError, type Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { supabaseClient, supabaseConfigError } from '../supabaseClient';
 
 export type UserRole = 'student' | 'expert' | 'admin';
@@ -169,38 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Geçerli bir kullanıcı adı veya e-posta adresi girin.');
     }
 
-    let nextSession: Session | null;
-    if (isEmail) {
-      const { data, error: loginError } = await supabaseClient.functions.invoke<{
-        session?: { access_token?: string; refresh_token?: string };
-      }>('email-login', {
-        body: { email: normalizedIdentifier, password, captchaToken },
-      });
-      if (loginError) {
-        if (loginError instanceof FunctionsHttpError && loginError.context instanceof Response) {
-          const responseBody = await loginError.context.json() as { message?: unknown };
-          if (typeof responseBody.message === 'string') throw new Error(responseBody.message);
-        }
-        throw loginError;
-      }
-      if (!data?.session?.access_token || !data.session.refresh_token) {
-        throw new Error('Giriş başarılı oldu ancak oturum oluşturulamadı.');
-      }
-      const { data: sessionData, error: setSessionError } = await supabaseClient.auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      });
-      if (setSessionError) throw setSessionError;
-      nextSession = sessionData.session;
-    } else {
-      const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
-        email: `${normalizedIdentifier}@login.sakanin-sinirinda.invalid`,
-        password,
-        options: { captchaToken },
-      });
-      if (signInError) throw signInError;
-      nextSession = data.session;
-    }
+    const email = isEmail
+      ? normalizedIdentifier
+      : `${normalizedIdentifier}@login.sakanin-sinirinda.invalid`;
+    const { data, error: signInError } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    });
+    if (signInError) throw signInError;
+    const nextSession = data.session;
 
     if (!nextSession) throw new Error('Giriş başarılı oldu ancak oturum oluşturulamadı.');
 

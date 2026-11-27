@@ -28,10 +28,19 @@ type AuthContextValue = {
   error: string | null;
   signIn: (identifier: string, password: string, captchaToken: string) => Promise<AuthProfile>;
   saveStudentEmail: (email: string) => Promise<void>;
+  completeTutorial: () => void;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function tutorialCompleted(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`sakanin_tutorial_completed_${userId}`) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Beklenmeyen bir kimlik doğrulama hatası oluştu.';
@@ -46,7 +55,7 @@ function fallbackProfile(user: User): AuthProfile {
       : user.email?.split('@')[0] || 'user',
     role: 'user',
     email: user.email ?? null,
-    tutorialCompleted: false,
+    tutorialCompleted: tutorialCompleted(user.id),
   };
 }
 
@@ -75,7 +84,7 @@ async function fetchUserProfile(user: User): Promise<AuthProfile> {
       ? data.role
       : 'user',
     email: data.email,
-    tutorialCompleted: false,
+    tutorialCompleted: tutorialCompleted(user.id),
   };
 }
 
@@ -231,6 +240,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : currentProfile);
   }, [profile?.role, session]);
 
+  const completeTutorial = useCallback(() => {
+    if (!session) throw new Error('Bu işlem için oturum açmalısınız.');
+    window.localStorage.setItem(`sakanin_tutorial_completed_${session.user.id}`, 'true');
+    setProfile((currentProfile) => currentProfile
+      ? { ...currentProfile, tutorialCompleted: true }
+      : currentProfile);
+  }, [session]);
+
   const signOut = useCallback(async () => {
     if (!supabaseClient) {
       throw new Error(supabaseConfigError ?? 'Supabase bağlantısı yapılandırılmamış.');
@@ -241,7 +258,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, role, loading, error, signIn, saveStudentEmail, signOut }}>
+    <AuthContext.Provider value={{
+      session,
+      profile,
+      role,
+      loading,
+      error,
+      signIn,
+      saveStudentEmail,
+      completeTutorial,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
